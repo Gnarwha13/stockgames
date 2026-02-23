@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Case — Gacha Portfolio Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #08090d;
+    font-family: 'Rajdhani', sans-serif;
+    color: #e0e0e0;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .scanlines {
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px);
+    pointer-events: none; z-index: 9999;
+  }
+
+  .app {
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 2rem 1rem 4rem;
+  }
+
+  h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(1.5rem, 4vw, 3rem);
+    font-weight: 900; letter-spacing: 0.15em; text-transform: uppercase;
+    background: linear-gradient(135deg, #ffd700 0%, #ff6b35 50%, #ff00ff 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; text-align: center; margin-bottom: 0.25rem;
+  }
+
+  .subtitle {
+    font-size: 0.85rem; letter-spacing: 0.3em; color: #555;
+    text-transform: uppercase; margin-bottom: 0.75rem;
+  }
+
+  .disclaimer {
+    font-size: 0.7rem; letter-spacing: 0.1em; color: #444;
+    border: 1px solid #222; padding: 0.4rem 1rem;
+    margin-bottom: 2rem; text-align: center;
+  }
+
+  .crate-area {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 2rem; width: 100%; max-width: 800px;
+  }
+
+  /* ── SLOT MACHINE ── */
+  .slot-wrapper { width: 100%; max-width: 700px; position: relative; }
+
+  .slot-machine {
+    width: 100%; height: 88px; overflow: hidden;
+    border: 2px solid #2a2a2a; border-radius: 4px;
+    position: relative; background: #0a0b0f;
+  }
+
+  .slot-machine::before, .slot-machine::after {
+    content: ''; position: absolute; left: 0; right: 0; height: 22px; z-index: 10; pointer-events: none;
+  }
+  .slot-machine::before { top: 0; background: linear-gradient(#0a0b0f, transparent); }
+  .slot-machine::after  { bottom: 0; background: linear-gradient(transparent, #0a0b0f); }
+
+  .slot-indicator {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 96px; height: 90px;
+    border: 2px solid #ffd700;
+    box-shadow: 0 0 20px rgba(255,215,0,0.5), inset 0 0 20px rgba(255,215,0,0.08);
+    pointer-events: none; z-index: 11;
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  }
+
+  .slot-track {
+    display: flex; flex-direction: row; gap: 8px;
+    align-items: center; height: 100%;
+    will-change: transform;
+    transform: translateX(100%);
+  }
+
+  .slot-item {
+    width: 88px; flex-shrink: 0; height: 72px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    border-radius: 4px; border: 1px solid #333;
+    font-family: 'Orbitron', monospace; font-weight: 700;
+    letter-spacing: 0.05em; cursor: default;
+  }
+  .slot-item .s-emoji { font-size: 1.3rem; line-height: 1; margin-bottom: 3px; }
+  .slot-item .s-ticker { font-size: 0.7rem; }
+
+  /* ── BUTTON ── */
+  .crate-btn {
+    font-family: 'Orbitron', monospace; font-size: 1.1rem;
+    font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
+    padding: 1rem 3rem;
+    background: linear-gradient(135deg, #ffd700, #ff6b35);
+    color: #000; border: none; cursor: pointer;
+    clip-path: polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%);
+    transition: all 0.2s;
+    box-shadow: 0 0 30px rgba(255,215,0,0.4);
+  }
+  .crate-btn:hover:not(:disabled) { transform: scale(1.05); box-shadow: 0 0 50px rgba(255,215,0,0.7); }
+  .crate-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── RESULT MODAL ── */
+  .result-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.88);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100; animation: fadeIn 0.3s ease;
+  }
+  .result-overlay.hidden { display: none; }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .result-card {
+    position: relative; width: min(420px, 90vw);
+    padding: 2.5rem 2rem;
+    border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; gap: 1rem;
+    animation: cardPop 0.5s cubic-bezier(0.34,1.56,0.64,1);
+    border: 2px solid var(--tc);
+    box-shadow: 0 0 60px var(--tc), 0 0 120px color-mix(in srgb, var(--tc) 30%, transparent);
+    overflow: hidden;
+  }
+  @keyframes cardPop {
+    from { transform: scale(0.3) rotate(-10deg); opacity: 0; }
+    to   { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+
+  .card-content {
+    position: relative; z-index: 1; width: 100%;
+    display: flex; flex-direction: column; align-items: center; gap: 0.75rem;
+  }
+
+  .tier-badge {
+    font-family: 'Orbitron', monospace; font-size: 0.7rem;
+    letter-spacing: 0.25em; text-transform: uppercase;
+    padding: 0.3rem 1rem;
+    border: 1px solid var(--tc); color: var(--tc);
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  }
+
+  .card-art {
+    width: 160px; height: 160px; border-radius: 4px;
+    border: 2px solid var(--tc);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 5rem; background: rgba(0,0,0,0.3);
+    box-shadow: 0 0 30px var(--tc); overflow: hidden;
+  }
+  .card-art img { width: 100%; height: 100%; object-fit: cover; }
+
+  .card-ticker {
+    font-family: 'Orbitron', monospace; font-size: 2rem; font-weight: 900;
+    color: var(--tc);
+    text-shadow: 0 0 20px var(--tc);
+  }
+  .card-name { font-size: 0.9rem; color: #aaa; text-align: center; max-width: 280px; }
+
+  .result-card.shiny::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(115deg,
+      transparent 0%, transparent 30%,
+      rgba(255,255,255,0.18) 50%,
+      transparent 70%, transparent 100%);
+    background-size: 200% 200%;
+    animation: shinySwipe 1.8s ease-in-out infinite;
+    pointer-events: none; z-index: 2;
+  }
+  @keyframes shinySwipe {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  .result-card.shiny .card-ticker {
+    background: linear-gradient(90deg, #ff0000, #ff7700, #ffff00, #00ff00, #00bfff, #8800ff, #ff00ff, #ff0000);
+    background-size: 300%;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: rainbowText 2.5s linear infinite;
+  }
+  @keyframes rainbowText {
+    0%   { background-position: 0% 50%; }
+    100% { background-position: 300% 50%; }
+  }
+  .result-card.shiny .tier-badge {
+    background: linear-gradient(90deg, #ff0000, #ff7700, #ffff00, #00ff00, #00bfff, #8800ff, #ff00ff, #ff0000);
+    background-size: 300%;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: rainbowText 2.5s linear infinite;
+    border-color: transparent !important;
+  }
+
+  .card-alts {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+    gap: 0.4rem; max-width: 300px;
+  }
+  .alts-label { font-size: 0.6rem; color: #555; letter-spacing: 0.2em; text-transform: uppercase; font-family: 'Orbitron', monospace; }
+  .alt-chip {
+    font-family: 'Orbitron', monospace; font-size: 0.6rem;
+    padding: 0.2rem 0.5rem; border: 1px solid #333;
+    color: #555; letter-spacing: 0.1em;
+  }
+
+  .card-links {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem;
+    margin-top: 0.25rem;
+  }
+  .card-link {
+    font-family: 'Orbitron', monospace; font-size: 0.55rem;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    padding: 0.3rem 0.7rem;
+    border: 1px solid #2a2a2a; color: #666;
+    text-decoration: none; transition: all 0.2s;
+  }
+  .card-link:hover { border-color: var(--tc); color: var(--tc); }
+
+  .card-particles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .particle {
+    position: absolute; border-radius: 50%; background: var(--tc);
+    animation: particleFly 1.5s ease-out forwards;
+  }
+  @keyframes particleFly {
+    0%   { transform: translate(0,0) scale(1); opacity: 1; }
+    100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+  }
+
+  .close-btn {
+    font-family: 'Orbitron', monospace; font-size: 0.75rem;
+    letter-spacing: 0.2em; padding: 0.6rem 2rem;
+    background: transparent; border: 1px solid var(--tc);
+    color: var(--tc); cursor: pointer;
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+    transition: all 0.2s; margin-top: 0.5rem;
+  }
+  .close-btn:hover { background: var(--tc); color: #000; }
+
+  /* ── DISTRIBUTION CHART ── */
+  .chart-section {
+    width: 100%; max-width: 700px; margin-top: 1.5rem;
+    padding: 1.25rem 1.5rem 1.5rem;
+    border: 1px solid #1a1a1a; background: rgba(255,255,255,0.01);
+    display: none;
+  }
+  .chart-title {
+    font-family: 'Orbitron', monospace; font-size: 0.7rem;
+    letter-spacing: 0.3em; color: #444; text-transform: uppercase; margin-bottom: 1.25rem;
+  }
+  .chart-bars { display: flex; flex-direction: column; gap: 7px; }
+  .chart-row { display: flex; align-items: center; gap: 10px; }
+  .chart-label {
+    font-family: 'Orbitron', monospace; font-size: 0.55rem;
+    letter-spacing: 0.05em; color: #555; min-width: 100px; text-align: right;
+    white-space: nowrap;
+  }
+  .chart-bar-track {
+    flex: 1; height: 16px; background: rgba(255,255,255,0.04);
+    border-radius: 2px; overflow: hidden; position: relative;
+  }
+  .chart-bar-fill {
+    height: 100%; border-radius: 2px;
+    transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    width: 0%;
+  }
+  .chart-count {
+    font-family: 'Orbitron', monospace; font-size: 0.6rem;
+    min-width: 28px; text-align: left;
+  }
+  .chart-pct {
+    font-size: 0.6rem; color: #444; min-width: 36px; text-align: right;
+    font-family: 'Rajdhani', sans-serif;
+  }
+
+  /* ── HISTORY ── */
+  .history-section { width: 100%; max-width: 700px; margin-top: 1rem; }
+  .history-title {
+    font-family: 'Orbitron', monospace; font-size: 0.7rem;
+    letter-spacing: 0.3em; color: #444; text-transform: uppercase; margin-bottom: 0.75rem;
+  }
+  .history-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .history-chip {
+    font-family: 'Orbitron', monospace; font-size: 0.6rem;
+    padding: 0.3rem 0.7rem; border: 1px solid var(--c);
+    color: var(--c); border-radius: 2px; letter-spacing: 0.1em; opacity: 0.7;
+  }
+
+  /* ── TIER TABLE ── */
+  .tier-ref { width: 100%; max-width: 700px; margin-top: 3rem; }
+  .tier-ref-title {
+    font-family: 'Orbitron', monospace; font-size: 0.7rem;
+    letter-spacing: 0.3em; color: #333; text-transform: uppercase; margin-bottom: 1rem;
+  }
+  .tier-rows { display: flex; flex-direction: column; gap: 4px; }
+  .tier-row {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 0.5rem 1rem; border-left: 3px solid var(--c);
+    background: rgba(255,255,255,0.02); font-size: 0.8rem;
+  }
+  .tier-row .tr-name { font-family: 'Orbitron', monospace; font-size: 0.65rem; color: var(--c); min-width: 130px; }
+  .tier-row .tr-odds { color: #555; font-size: 0.75rem; min-width: 80px; }
+  .tier-row .tr-stocks { color: #555; font-size: 0.65rem; }
+
+  /* ── PORTFOLIO PANEL ── */
+  .portfolio-panel {
+    width: 100%; max-width: 700px; margin-top: 3rem;
+    border: 1px solid #1e1e1e; background: rgba(255,255,255,0.01);
+    padding: 1.5rem;
+  }
+
+  .portfolio-header {
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;
+  }
+
+  .portfolio-title {
+    font-family: 'Orbitron', monospace; font-size: 0.75rem;
+    letter-spacing: 0.3em; color: #666; text-transform: uppercase;
+  }
+
+  .portfolio-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+  .port-btn {
+    font-family: 'Orbitron', monospace; font-size: 0.55rem;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    padding: 0.4rem 0.9rem; background: transparent;
+    border: 1px solid #2a2a2a; color: #555; cursor: pointer;
+    transition: all 0.2s; display: inline-block;
+    clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
+  }
+  .port-btn:hover { border-color: #ffd700; color: #ffd700; }
+  .port-btn.danger:hover { border-color: #ef4444; color: #ef4444; }
+
+  /* health score */
+  .health-section {
+    display: flex; gap: 2rem; align-items: flex-start;
+    margin-bottom: 1.5rem; flex-wrap: wrap;
+  }
+
+  .health-score-wrap {
+    display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
+    min-width: 90px;
+  }
+
+  .health-label {
+    font-family: 'Orbitron', monospace; font-size: 0.55rem;
+    letter-spacing: 0.2em; color: #444; text-transform: uppercase;
+  }
+
+  .health-score {
+    font-family: 'Orbitron', monospace; font-size: 2.8rem; font-weight: 900;
+    line-height: 1; color: #ffd700;
+    text-shadow: 0 0 20px rgba(255,215,0,0.5);
+  }
+
+  .health-grade {
+    font-family: 'Orbitron', monospace; font-size: 0.65rem;
+    letter-spacing: 0.2em; color: #555;
+  }
+
+  .health-breakdown {
+    flex: 1; display: flex; flex-direction: column; gap: 0.5rem; min-width: 200px;
+  }
+
+  .health-row {
+    display: flex; align-items: center; gap: 0.75rem; font-size: 0.75rem;
+  }
+
+  .health-row-label {
+    font-family: 'Orbitron', monospace; font-size: 0.55rem;
+    color: #444; min-width: 140px; letter-spacing: 0.05em;
+  }
+
+  .health-bar-track {
+    flex: 1; height: 4px; background: #1a1a1a; border-radius: 2px; overflow: hidden;
+  }
+
+  .health-bar-fill {
+    height: 100%; border-radius: 2px; transition: width 0.6s ease;
+  }
+
+  .health-row-val {
+    font-family: 'Orbitron', monospace; font-size: 0.55rem;
+    color: #555; min-width: 30px; text-align: right;
+  }
+
+  /* holdings */
+  .holdings-title {
+    font-family: 'Orbitron', monospace; font-size: 0.6rem;
+    letter-spacing: 0.25em; color: #333; text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  .holdings-list { display: flex; flex-direction: column; gap: 4px; }
+
+  .holding-row {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-left: 2px solid var(--c); background: rgba(255,255,255,0.015);
+    font-size: 0.75rem;
+  }
+
+  .holding-emoji { font-size: 1.1rem; width: 24px; text-align: center; }
+  .holding-ticker { font-family: 'Orbitron', monospace; font-size: 0.7rem; color: var(--c); min-width: 60px; }
+  .holding-name { color: #555; font-size: 0.7rem; flex: 1; }
+  .holding-tier { font-family: 'Orbitron', monospace; font-size: 0.5rem; color: #333; letter-spacing: 0.1em; }
+  .holding-count {
+    font-family: 'Orbitron', monospace; font-size: 0.6rem;
+    color: #444; background: #111; border: 1px solid #222;
+    padding: 0.1rem 0.4rem; min-width: 28px; text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="scanlines"></div>
+<div class="app">
+  <h1>Stock Case</h1>
+  <div class="subtitle">Gacha Portfolio Simulator</div>
+  <div class="disclaimer">⚠️ Not investment advice — purely for entertainment purposes</div>
+
+  <div class="crate-area">
+    <div class="slot-wrapper">
+      <div class="slot-machine">
+        <div class="slot-indicator"></div>
+        <div class="slot-track" id="slotTrack"></div>
+      </div>
+    </div>
+    <button class="crate-btn" id="openBtn">Open Case</button>
+
+    <div class="history-section" id="historySection" style="display:none">
+      <div class="history-title">Recent Pulls</div>
+      <div class="history-grid" id="historyGrid"></div>
+    </div>
+  </div>
+
+  <div class="chart-section" id="chartSection">
+    <div class="chart-title">Pull Distribution</div>
+    <div class="chart-bars" id="chartBars"></div>
+  </div>
+
+  <div class="tier-ref">
+    <div class="tier-ref-title">Drop Rate Reference</div>
+    <div class="tier-rows" id="tierRows"></div>
+  </div>
+
+  <!-- PORTFOLIO PANEL -->
+  <div class="portfolio-panel" id="portfolioPanel" style="display:none">
+    <div class="portfolio-header">
+      <div class="portfolio-title">📊 Your Portfolio</div>
+      <div class="portfolio-actions">
+        <button class="port-btn" id="exportBtn">⬇ Export .txt</button>
+        <label class="port-btn" id="importLabel">⬆ Import .txt<input type="file" id="importInput" accept=".txt" style="display:none"></label>
+        <button class="port-btn danger" id="clearBtn">✕ Clear</button>
+      </div>
+    </div>
+
+    <!-- HEALTH SCORE -->
+    <div class="health-section">
+      <div class="health-score-wrap">
+        <div class="health-label">Portfolio Health</div>
+        <div class="health-score" id="healthScore">—</div>
+        <div class="health-grade" id="healthGrade"></div>
+      </div>
+      <div class="health-breakdown" id="healthBreakdown"></div>
+    </div>
+
+    <!-- HOLDINGS TABLE -->
+    <div class="holdings-title">Holdings</div>
+    <div class="holdings-list" id="holdingsList"></div>
+  </div>
+</div>
+
+<!-- RESULT MODAL -->
+<div class="result-overlay hidden" id="resultOverlay">
+  <div class="result-card" id="resultCard">
+    <div class="card-particles" id="cardParticles"></div>
+    <div class="card-content">
+      <div class="tier-badge" id="tierBadge"></div>
+      <div class="card-art" id="cardArt"></div>
+      <div class="card-ticker" id="cardTicker"></div>
+      <div class="card-name" id="cardName"></div>
+      <div class="card-alts" id="cardAlts"></div>
+      <div class="card-links" id="cardLinks"></div>
+      <button class="close-btn" id="closeBtn">Collect</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── TIER CONFIG ──────────────────────────────────────────────────────────────
+const TIERS = {
+  common:        { label: "Common",         prob: 1/2,    color: "#9ea3b0", bg: "#1a1c24" },
+  rare:          { label: "Uncommon",        prob: 1/4,    color: "#4e9ef5", bg: "#0d1a2e" },
+  somewhatRare:  { label: "Somewhat Rare",   prob: 1/8,    color: "#22d3ee", bg: "#001e24" },
+  veryRare:      { label: "Rare",            prob: 1/16,   color: "#a855f7", bg: "#1a0d2e" },
+  ultraRare:     { label: "Very Rare",       prob: 1/32,   color: "#f97316", bg: "#2e1500" },
+  ultraRarePlus: { label: "Ultra Rare",      prob: 1/64,   color: "#ef4444", bg: "#2e0000" },
+  ultraRarePP:   { label: "Mega Rare",       prob: 1/128,  color: "#ec4899", bg: "#2e0019" },
+  ultraRarePPP:  { label: "Legendary",       prob: 1/256,  color: "#06b6d4", bg: "#002e30" },
+  legendary:     { label: "Ultra Legendary", prob: 1/512,  color: "#22c55e", bg: "#002200" },
+  unique:        { label: "Unique",          prob: 1/1024, color: "#ffffff", bg: "#1a1a2e" },
+  secretUnique:  { label: "✨ Shiny",        prob: null,   color: "#ff88ff", bg: "#0d0010" },
+};
+
+// ─── STOCK POOLS ─────────────────────────────────────────────────────────────
+const STOCKS = {
+  // ── COMMON: Broad index funds & core bond exposure ──
+  common: [
+    { ticker:"VOO",   name:"S&P 500 Index",                       emoji:"🦅", alts:["SPY","IVV","SPLG"] },
+    { ticker:"VTI",   name:"Total US Stock Market",               emoji:"🇺🇸", alts:["ITOT","SCHB","SPTM"] },
+    { ticker:"VT",    name:"Total World Stock Market",            emoji:"🌍", alts:["ACWI","URTH"] },
+    { ticker:"VXUS",  name:"International ex-US (All)",           emoji:"🌐", alts:["VEU","IXUS"] },
+    { ticker:"VEA",   name:"Developed Markets ex-US",             emoji:"🇪🇺", alts:["EFA","SCHF","IDEV"] },
+    { ticker:"VWO",   name:"Emerging Markets",                    emoji:"🌴", alts:["EEM","IEMG","SCHE"] },
+    { ticker:"BND",   name:"US Total Bond Market",                emoji:"🔗", alts:["AGG","SCHZ","IUSB"] },
+    { ticker:"BNDX",  name:"International Bond Market",           emoji:"📋", alts:["IAGG","BWX"] },
+    { ticker:"BSV",   name:"Short-Term US Bond",                  emoji:"🪙", alts:["SHY","SCHO","VGSH"] },
+    { ticker:"BIL",   name:"T-Bills / Cash Equivalent",           emoji:"💵", alts:["SGOV","USFR","TBLL"] },
+    { ticker:"IEF",   name:"Intermediate-Term Treasuries (7-10yr)",emoji:"📜", alts:["VGIT","SCHR","ITE"] },
+    { ticker:"TLT",   name:"Long-Term Treasuries (20yr+)",        emoji:"🏛️", alts:["EDV","ZROZ","VGLT"] },
+    { ticker:"LQD",   name:"Investment-Grade Corporate Bonds",    emoji:"🏢", alts:["VCIT","IGIB","USIG"] },
+    { ticker:"HYG",   name:"High-Yield Corporate Bonds",          emoji:"⚠️", alts:["JNK","USHY","FALN"] },
+    { ticker:"AOR",   name:"Balanced Growth Portfolio (60/40)",   emoji:"⚖️", alts:["AOA","AOM","AOK"] },
+  ],
+
+  // ── UNCOMMON: Sector ETFs, real assets, income, HYG ──
+  rare: [
+    { ticker:"QQQ",   name:"NASDAQ-100 (Tech-Heavy Large Cap)",   emoji:"📡", alts:["QQQM","ONEQ"] },
+    { ticker:"SCHD",  name:"US Dividend Growth",                  emoji:"💰", alts:["VIG","DGRO","DVY","VYM"] },
+    { ticker:"VNQ",   name:"US Real Estate (REITs)",              emoji:"🏠", alts:["IYR","SCHH","USRT"] },
+    { ticker:"VNQI",  name:"Global ex-US Real Estate",            emoji:"🌆", alts:["RWX","IFGL"] },
+    { ticker:"GLD",   name:"Gold",                                emoji:"🥇", alts:["IAU","GLDM","SGOL"] },
+    { ticker:"SLV",   name:"Silver",                              emoji:"🥈", alts:["SIVR","PSLV"] },
+    { ticker:"PDBC",  name:"Broad Commodities",                   emoji:"⛏️", alts:["DJP","COMT","GSG"] },
+    { ticker:"TIP",   name:"Inflation-Protected Bonds (TIPS)",    emoji:"📌", alts:["SCHP","VTIP","STIP"] },
+    { ticker:"HYG",   name:"High-Yield Corporate Bonds",          emoji:"⚠️", alts:["JNK","USHY","FALN"] },
+    { ticker:"VPU",   name:"Utilities Sector",                    emoji:"💡", alts:["XLU","FUTY"] },
+    { ticker:"VHT",   name:"Healthcare Sector",                   emoji:"🏥", alts:["XLV","FHLC","IYH"] },
+    { ticker:"VFH",   name:"Financials Sector",                   emoji:"🏦", alts:["XLF","FNCL","IYF"] },
+    { ticker:"VAW",   name:"Materials Sector",                    emoji:"🏭", alts:["XLB","FMAT","IYM"] },
+    { ticker:"VIS",   name:"Industrials Sector",                  emoji:"⚙️", alts:["XLI","FIDU","IYJ"] },
+    { ticker:"VCR",   name:"Consumer Discretionary Sector",       emoji:"🛍️", alts:["XLY","FDIS","IYC"] },
+    { ticker:"VDC",   name:"Consumer Staples Sector",             emoji:"🧺", alts:["XLP","FSTA","IYK"] },
+    { ticker:"VGT",   name:"Technology Sector",                   emoji:"💻", alts:["XLK","IYW","FTEC"] },
+    { ticker:"VOX",   name:"Communication Services Sector",       emoji:"📶", alts:["XLC","IYZ","FCOM"] },
+    { ticker:"XLE",   name:"Energy Sector",                       emoji:"⛽", alts:["VDE","FENY","IYE"] },
+    { ticker:"XOP",   name:"Oil & Gas Exploration & Production",  emoji:"🛢️", alts:["IEO","DRLL"] },
+    { ticker:"MOO",   name:"Agribusiness & Agriculture",          emoji:"🌾", alts:["DBA","VEGI","FTAG"] },
+    { ticker:"XME",   name:"Metals & Mining",                     emoji:"⛏️", alts:["PICK","METS","COPX"] },
+    { ticker:"PAVE",  name:"US Infrastructure Development",       emoji:"🏗️", alts:["IFRA","IGF","NFRA"] },
+    { ticker:"PFF",   name:"Preferred Stock",                     emoji:"⭐", alts:["PFFD","IPFF"] },
+    { ticker:"JEPI",  name:"Covered Call Income (S&P 500)",       emoji:"💸", alts:["XYLD","QYLD","DIVO"] },
+    { ticker:"RSP",   name:"Equal-Weight S&P 500",                emoji:"⚖️", alts:["EWSC","EUSA"] },
+    { ticker:"NOBL",  name:"Dividend Aristocrats",                emoji:"👑", alts:["SDY","REGL","DGRO"] },
+  ],
+
+  // ── SOMEWHAT RARE: Factor ETFs, thematic ETFs, commodity sub-sectors, intl strategies ──
+  somewhatRare: [
+    { ticker:"SOXX",  name:"Semiconductors",                      emoji:"💎", alts:["SMH","XSD","PSI"] },
+    { ticker:"CIBR",  name:"Cybersecurity",                       emoji:"🔐", alts:["HACK","BUG","IHAK"] },
+    { ticker:"CLOU",  name:"Cloud Computing",                     emoji:"☁️", alts:["WCLD","SKYY","IVES"] },
+    { ticker:"BOTZ",  name:"Robotics & AI",                       emoji:"🤖", alts:["ROBO","AIQ","IRBO"] },
+    { ticker:"ARKK",  name:"Disruptive Innovation",               emoji:"🚀", alts:["ARKW","ARKG","ARKF"] },
+    { ticker:"FINX",  name:"FinTech",                             emoji:"💸", alts:["IPAY","ARKF","KOIN"] },
+    { ticker:"IWM",   name:"Small-Cap Blend (Russell 2000)",      emoji:"🧩", alts:["VB","IJR","SCHA"] },
+    { ticker:"VBR",   name:"Small-Cap Value",                     emoji:"🔩", alts:["IJS","VIOV","AVUV"] },
+    { ticker:"VBK",   name:"Small-Cap Growth",                    emoji:"🌾", alts:["IJT","VXF","VONG"] },
+    { ticker:"VO",    name:"Mid-Cap Blend",                       emoji:"🎯", alts:["IJH","SPMD","SCHM"] },
+    { ticker:"MTUM",  name:"Momentum Factor",                     emoji:"⚡", alts:["PDP","QMOM","IMTM"] },
+    { ticker:"VLUE",  name:"Value Factor",                        emoji:"💡", alts:["VTV","IVE","VONV"] },
+    { ticker:"QUAL",  name:"Quality Factor",                      emoji:"🏆", alts:["DGRW","SPHQ","JQUA"] },
+    { ticker:"USMV",  name:"Low Volatility Factor",               emoji:"🌊", alts:["SPLV","EFAV","ACWV"] },
+    { ticker:"VSS",   name:"International Small-Cap",             emoji:"🌏", alts:["IFSM","SCZ","GWX"] },
+    { ticker:"EFV",   name:"International Developed Value",       emoji:"🗺️", alts:["IVLU","DFIV","AVDV"] },
+    { ticker:"VYMI",  name:"International High Dividend",         emoji:"🌍", alts:["IDV","HDAW","EFAV"] },
+    { ticker:"GDX",   name:"Gold Miners",                         emoji:"⛏️", alts:["GDXJ","RING","SGDM"] },
+    { ticker:"DBO",   name:"Oil Fund",                            emoji:"🛢️", alts:["USO","BNO","OILK"] },
+    { ticker:"DBB",   name:"Base Metals (Copper, Zinc, Aluminium)",emoji:"🔩", alts:["CPER","COPX"] },
+    { ticker:"WEAT",  name:"Agricultural Commodities",            emoji:"🌾", alts:["CORN","SOYB","DBA"] },
+    { ticker:"BLOK",  name:"Blockchain & Digital Assets",         emoji:"⛓️", alts:["LEGR","KOIN","BKCH"] },
+  ],
+
+  // ── RARE: Steady blue-chip stocks — legitimate small-position holdings ──
+  veryRare: [
+    { ticker:"BRK.B", name:"Berkshire Hathaway — Diversified Conglomerate", emoji:"🎩" },
+    { ticker:"JPM",   name:"JPMorgan Chase — US Banking Leader",  emoji:"🏦" },
+    { ticker:"V",     name:"Visa — Global Payments Network",      emoji:"💳" },
+    { ticker:"MA",    name:"Mastercard — Global Payments Network",emoji:"🔴" },
+    { ticker:"JNJ",   name:"Johnson & Johnson — Healthcare Giant", emoji:"🩹" },
+    { ticker:"PG",    name:"Procter & Gamble — Consumer Staples", emoji:"🧼" },
+    { ticker:"KO",    name:"Coca-Cola — Beverage Empire",         emoji:"🥤" },
+    { ticker:"WMT",   name:"Walmart — Retail Juggernaut",         emoji:"🛒" },
+    { ticker:"COST",  name:"Costco — Membership Retail",          emoji:"📦" },
+    { ticker:"HD",    name:"Home Depot — Home Improvement Leader", emoji:"🔨" },
+    { ticker:"MCD",   name:"McDonald's — Global Franchise Empire", emoji:"🍔" },
+    { ticker:"NEE",   name:"NextEra Energy — Renewable Utility",  emoji:"🌬️" },
+    { ticker:"AMT",   name:"American Tower — Cell Tower REIT",    emoji:"📡" },
+    { ticker:"PLD",   name:"Prologis — Industrial REIT",          emoji:"🏭" },
+    { ticker:"UNH",   name:"UnitedHealth Group",                  emoji:"🏥" },
+    { ticker:"PEP",   name:"PepsiCo Inc.",                        emoji:"🫙" },
+    { ticker:"BAC",   name:"Bank of America Corporation",         emoji:"🏛️" },
+    { ticker:"WFC",   name:"Wells Fargo & Company",               emoji:"🐎" },
+    { ticker:"GS",    name:"Goldman Sachs Group",                 emoji:"📐" },
+    { ticker:"BLK",   name:"BlackRock Inc.",                      emoji:"⬛" },
+    { ticker:"LMT",   name:"Lockheed Martin Corporation",         emoji:"✈️" },
+    { ticker:"RTX",   name:"RTX Corporation",                     emoji:"🛡️" },
+    { ticker:"CAT",   name:"Caterpillar Inc.",                    emoji:"🚜" },
+    { ticker:"DE",    name:"Deere & Company",                     emoji:"🌿" },
+    { ticker:"UPS",   name:"United Parcel Service",               emoji:"📫" },
+    { ticker:"CVX",   name:"Chevron Corporation",                 emoji:"⛽" },
+    { ticker:"XOM",   name:"ExxonMobil Corporation",              emoji:"🛢️" },
+    { ticker:"COP",   name:"ConocoPhillips",                      emoji:"🔥" },
+    { ticker:"NEM",   name:"Newmont Corporation — Gold Mining",   emoji:"🥇" },
+    { ticker:"FCX",   name:"Freeport-McMoRan — Copper Mining",   emoji:"🔩" },
+  ],
+
+  // ── VERY RARE: Growth-oriented blue chips & tech leaders ──
+  ultraRare: [
+    { ticker:"MSFT",  name:"Microsoft Corporation",               emoji:"🪟" },
+    { ticker:"AAPL",  name:"Apple Inc.",                          emoji:"🍎" },
+    { ticker:"GOOGL", name:"Alphabet Inc. Class A",               emoji:"🔍" },
+    { ticker:"UNH",   name:"UnitedHealth Group Inc.",             emoji:"🏥" },
+    { ticker:"PEP",   name:"PepsiCo Inc.",                        emoji:"🫙" },
+    { ticker:"BAC",   name:"Bank of America Corporation",         emoji:"🏛️" },
+    { ticker:"WFC",   name:"Wells Fargo & Company",               emoji:"🐎" },
+    { ticker:"GS",    name:"Goldman Sachs Group",                 emoji:"📐" },
+    { ticker:"BLK",   name:"BlackRock Inc.",                      emoji:"⬛" },
+    { ticker:"LMT",   name:"Lockheed Martin Corporation",         emoji:"✈️" },
+    { ticker:"RTX",   name:"RTX Corporation",                     emoji:"🛡️" },
+    { ticker:"CAT",   name:"Caterpillar Inc.",                    emoji:"🚜" },
+    { ticker:"DE",    name:"Deere & Company",                     emoji:"🌿" },
+    { ticker:"UPS",   name:"United Parcel Service",               emoji:"📫" },
+    { ticker:"CVX",   name:"Chevron Corporation",                 emoji:"⛽" },
+    { ticker:"XOM",   name:"ExxonMobil Corporation",              emoji:"🛢️" },
+    { ticker:"COP",   name:"ConocoPhillips",                      emoji:"🔥" },
+    { ticker:"SLB",   name:"SLB (Schlumberger) — Oilfield Services", emoji:"⚙️" },
+    { ticker:"NEM",   name:"Newmont Corporation — Gold Mining",   emoji:"🥇" },
+    { ticker:"FCX",   name:"Freeport-McMoRan — Copper Mining",   emoji:"🔩" },
+    { ticker:"ADM",   name:"Archer-Daniels-Midland — Agribusiness", emoji:"🌽" },
+    { ticker:"BG",    name:"Bunge Global — Grain & Oilseed",      emoji:"🌾" },
+    { ticker:"AME",   name:"AMETEK Inc. — Electronic Instruments", emoji:"🔬" },
+    { ticker:"ITW",   name:"Illinois Tool Works",                 emoji:"🔧" },
+    { ticker:"MMM",   name:"3M Company",                          emoji:"🔵" },
+  ],
+  ultraRarePlus: [
+    { ticker:"NVDA",  name:"NVIDIA Corporation",                         emoji:"🟢" },
+    { ticker:"META",  name:"Meta Platforms Inc.",                         emoji:"📘" },
+    { ticker:"AMZN",  name:"Amazon.com Inc.",                             emoji:"📦" },
+    { ticker:"TSLA",  name:"Tesla Inc.",                                  emoji:"⚡" },
+    { ticker:"NFLX",  name:"Netflix Inc.",                               emoji:"🎬" },
+    { ticker:"CRM",   name:"Salesforce Inc.",                            emoji:"☁️" },
+    { ticker:"ORCL",  name:"Oracle Corporation",                         emoji:"🔴" },
+    { ticker:"ADBE",  name:"Adobe Inc.",                                  emoji:"🎨" },
+    { ticker:"NOW",   name:"ServiceNow Inc.",                            emoji:"⚙️" },
+    { ticker:"SHOP",  name:"Shopify Inc.",                               emoji:"🛍️" },
+    { ticker:"SNOW",  name:"Snowflake Inc.",                             emoji:"❄️" },
+    { ticker:"DDOG",  name:"Datadog Inc.",                               emoji:"🐕" },
+    { ticker:"NET",   name:"Cloudflare Inc.",                            emoji:"🌩️" },
+    { ticker:"CRWD",  name:"CrowdStrike Holdings Inc.",                  emoji:"🔐" },
+    { ticker:"ZS",    name:"Zscaler Inc.",                               emoji:"🛡️" },
+    { ticker:"PANW",  name:"Palo Alto Networks Inc.",                    emoji:"🔥" },
+    { ticker:"ANET",  name:"Arista Networks Inc.",                       emoji:"🔌" },
+    { ticker:"AMD",   name:"Advanced Micro Devices Inc.",                emoji:"🔴" },
+    { ticker:"INTC",  name:"Intel Corporation",                          emoji:"💻" },
+    { ticker:"AVGO",  name:"Broadcom Inc.",                              emoji:"📶" },
+    { ticker:"QCOM",  name:"QUALCOMM Incorporated",                      emoji:"📱" },
+    { ticker:"MU",    name:"Micron Technology Inc.",                     emoji:"🔋" },
+    { ticker:"LRCX",  name:"Lam Research Corporation",                   emoji:"🔬" },
+    { ticker:"KLAC",  name:"KLA Corporation",                            emoji:"🔭" },
+    { ticker:"AMAT",  name:"Applied Materials Inc.",                     emoji:"⚗️" },
+  ],
+  ultraRarePP: [
+    { ticker:"BRK.B", name:"Berkshire Hathaway Class B",                  emoji:"🎩" },
+    { ticker:"BRK.A", name:"Berkshire Hathaway Class A",                  emoji:"🏆" },
+    { ticker:"PLTR",  name:"Palantir Technologies",                       emoji:"👁️" },
+    { ticker:"HOOD",  name:"Robinhood Markets Inc.",                      emoji:"🏹" },
+    { ticker:"SOFI",  name:"SoFi Technologies Inc.",                      emoji:"🏄" },
+    { ticker:"UPST",  name:"Upstart Holdings Inc.",                       emoji:"🤖" },
+    { ticker:"AFRM",  name:"Affirm Holdings Inc.",                        emoji:"✅" },
+    { ticker:"PYPL",  name:"PayPal Holdings Inc.",                        emoji:"💸" },
+    { ticker:"SQ",    name:"Block Inc.",                                  emoji:"🟩" },
+    { ticker:"TWLO",  name:"Twilio Inc.",                                 emoji:"📞" },
+    { ticker:"BILL",  name:"Bill Holdings Inc.",                          emoji:"📄" },
+    { ticker:"PATH",  name:"UiPath Inc.",                                 emoji:"🤝" },
+    { ticker:"AI",    name:"C3.ai Inc.",                                  emoji:"🧠" },
+    { ticker:"BBAI",  name:"BigBear.ai Holdings Inc.",                    emoji:"🐻" },
+    { ticker:"SOUN",  name:"SoundHound AI Inc.",                          emoji:"🎵" },
+    { ticker:"ASTS",  name:"AST SpaceMobile Inc.",                        emoji:"🛰️" },
+    { ticker:"LUNR",  name:"Intuitive Machines Inc.",                     emoji:"🌙" },
+    { ticker:"RKLB",  name:"Rocket Lab USA",                             emoji:"🛸" },
+    { ticker:"SPCE",  name:"Virgin Galactic Holdings",                    emoji:"🚀" },
+    { ticker:"RDW",   name:"Redwire Corporation",                         emoji:"🔭" },
+    { ticker:"ACHR",  name:"Archer Aviation Inc.",                        emoji:"🛩️" },
+    { ticker:"JOBY",  name:"Joby Aviation Inc.",                          emoji:"🚁" },
+    { ticker:"RCAT",  name:"Red Cat Holdings Inc.",                       emoji:"🐱" },
+    { ticker:"KTOS",  name:"Kratos Defense & Security Solutions",         emoji:"🛡️" },
+    { ticker:"KTOS",  name:"Kratos Defense & Security Solutions",         emoji:"🛡️" },
+  ],
+  ultraRarePPP: [
+    { ticker:"IONQ",  name:"IonQ Inc.",                                   emoji:"⚛️" },
+    { ticker:"RGTI",  name:"Rigetti Computing Inc.",                      emoji:"🌀" },
+    { ticker:"QBTS",  name:"D-Wave Quantum Inc.",                         emoji:"🔵" },
+    { ticker:"QUBT",  name:"Quantum Computing Inc.",                      emoji:"🔮" },
+    { ticker:"ARQQ",  name:"Arqit Quantum Inc.",                          emoji:"🔐" },
+    { ticker:"SMCI",  name:"Super Micro Computer Inc.",                   emoji:"🖥️" },
+    { ticker:"CAMT",  name:"Camtek Ltd.",                                 emoji:"📷" },
+    { ticker:"ONTO",  name:"Onto Innovation Inc.",                        emoji:"💡" },
+    { ticker:"FORM",  name:"FormFactor Inc.",                             emoji:"📐" },
+    { ticker:"ALGM",  name:"Allegro MicroSystems Inc.",                   emoji:"⚡" },
+    { ticker:"WOLF",  name:"Wolfspeed Inc.",                              emoji:"🐺" },
+    { ticker:"LAZR",  name:"Luminar Technologies Inc.",                   emoji:"🔦" },
+    { ticker:"OUST",  name:"Ouster Inc.",                                 emoji:"👁️" },
+    { ticker:"LIDR",  name:"AEye Inc.",                                   emoji:"🎯" },
+    { ticker:"AEVA",  name:"Aeva Technologies Inc.",                      emoji:"🌊" },
+    { ticker:"MVST",  name:"Microvast Holdings Inc.",                     emoji:"🔋" },
+    { ticker:"FREYR", name:"FREYR Battery",                               emoji:"🌿" },
+    { ticker:"ALTM",  name:"Arcus Biosciences Inc.",                      emoji:"🧬" },
+    { ticker:"RXRX",  name:"Recursion Pharmaceuticals Inc.",              emoji:"🔬" },
+    { ticker:"ABSI",  name:"Absci Corporation",                           emoji:"🧪" },
+    { ticker:"NUVL",  name:"Nuvalent Inc.",                               emoji:"💊" },
+    { ticker:"TMDX",  name:"TransMedics Group",                          emoji:"❤️" },
+    { ticker:"NNOX",  name:"Nano-X Imaging",                             emoji:"🩻" },
+    { ticker:"GRAL",  name:"Grail Inc.",                                  emoji:"🧫" },
+    { ticker:"EXAS",  name:"Exact Sciences Corporation",                  emoji:"🔬" },
+  ],
+  legendary: [
+    { ticker:"NVDA",  name:"NVIDIA — The AI Infrastructure King",         emoji:"👑" },
+    { ticker:"TSLA",  name:"Tesla — The Optimus Prime",                   emoji:"🤖" },
+    { ticker:"PLTR",  name:"Palantir — The Data Oracle",                  emoji:"🔮" },
+    { ticker:"SMCI",  name:"Super Micro — The AI Server Kingpin",         emoji:"🖥️" },
+    { ticker:"ASTS",  name:"AST SpaceMobile — Satellite Broadband",       emoji:"🛰️" },
+    { ticker:"RKLB",  name:"Rocket Lab — The Small Sat Launcher",         emoji:"🚀" },
+    { ticker:"IONQ",  name:"IonQ — Trapped Ion Quantum Leader",           emoji:"⚛️" },
+    { ticker:"DNA",   name:"Ginkgo Bioworks — The Synthetic Bio Play",    emoji:"🧬" },
+    { ticker:"RXRX",  name:"Recursion Pharma — AI Drug Discovery",        emoji:"💊" },
+    { ticker:"HOOD",  name:"Robinhood — The Retail Revolution",           emoji:"🏹" },
+    { ticker:"RDDT",  name:"Reddit Inc.",                                 emoji:"👽" },
+    { ticker:"SNAP",  name:"Snap Inc.",                                   emoji:"👻" },
+    { ticker:"PINS",  name:"Pinterest Inc.",                              emoji:"📌" },
+    { ticker:"SPOT",  name:"Spotify Technology S.A.",                     emoji:"🎵" },
+    { ticker:"UBER",  name:"Uber Technologies Inc.",                      emoji:"🚗" },
+    { ticker:"LYFT",  name:"Lyft Inc.",                                   emoji:"🌸" },
+    { ticker:"DASH",  name:"DoorDash Inc.",                               emoji:"🚴" },
+    { ticker:"ABNB",  name:"Airbnb Inc.",                                 emoji:"🏡" },
+    { ticker:"SE",    name:"Sea Limited — Asia's Digital Empire",         emoji:"🌊" },
+    { ticker:"MELI",  name:"MercadoLibre — Latin America's Amazon",       emoji:"🦁" },
+    { ticker:"NU",    name:"Nu Holdings — The Brazilian Fintech Giant",   emoji:"🟣" },
+    { ticker:"GRAB",  name:"Grab Holdings — SE Asia Super App",           emoji:"🤙" },
+    { ticker:"BABA",  name:"Alibaba Group — The Chinese Dragon",          emoji:"🐉" },
+    { ticker:"PDD",   name:"PDD Holdings — Temu's Parent Company",        emoji:"🛒" },
+    { ticker:"JD",    name:"JD.com — China's Amazon",                    emoji:"📦" },
+  ],
+  unique: [
+    { ticker:"RKLB",  name:"Rocket Lab — Neutron Heavy Lift",             emoji:"🌙" },
+    { ticker:"LUNR",  name:"Intuitive Machines — Lunar Infrastructure",   emoji:"🌕" },
+    { ticker:"ACHR",  name:"Archer Aviation — Urban Air Mobility",        emoji:"🛩️" },
+    { ticker:"JOBY",  name:"Joby Aviation — The eVTOL Unicorn",           emoji:"🌀" },
+    { ticker:"IONQ",  name:"IonQ — Fault-Tolerant Quantum",               emoji:"⚛️" },
+    { ticker:"QBTS",  name:"D-Wave — Annealing Quantum Leader",           emoji:"🌊" },
+    { ticker:"RGTI",  name:"Rigetti — Superconducting Qubits",            emoji:"🔵" },
+    { ticker:"SOUN",  name:"SoundHound AI — Voice Intelligence",          emoji:"🎤" },
+    { ticker:"BBAI",  name:"BigBear.ai — Defense AI Analytics",           emoji:"👁️" },
+    { ticker:"NNOX",  name:"Nano-X Imaging — Distributed X-Ray",         emoji:"🔬" },
+    { ticker:"TMDX",  name:"TransMedics Group — Organ Transport",         emoji:"❤️" },
+    { ticker:"EDIT",  name:"Editas Medicine — CRISPR Gene Editing",       emoji:"✂️" },
+    { ticker:"CRSP",  name:"CRISPR Therapeutics — Gene Therapy Pioneer",  emoji:"🧬" },
+    { ticker:"NTLA",  name:"Intellia Therapeutics — In Vivo CRISPR",      emoji:"💡" },
+    { ticker:"BEAM",  name:"Beam Therapeutics — Base Editing",            emoji:"🔦" },
+    { ticker:"VERV",  name:"Verve Therapeutics — Cardiovascular Gene Tx", emoji:"💓" },
+    { ticker:"RXRX",  name:"Recursion Pharma — AI Phenomics",             emoji:"🤖" },
+    { ticker:"ABSI",  name:"Absci — Generative AI Protein Design",        emoji:"🧪" },
+    { ticker:"BLUE",  name:"bluebird bio — Lentiviral Gene Therapy",      emoji:"🐦" },
+    { ticker:"FATE",  name:"Fate Therapeutics — iPSC Cell Therapy",       emoji:"🎭" },
+    { ticker:"CELH",  name:"Celsius Holdings — The Energy Drink Rocket",  emoji:"🔥" },
+    { ticker:"NUVL",  name:"Nuvalent — Next-Gen Cancer Therapy",          emoji:"🌟" },
+    { ticker:"GRAL",  name:"Grail — Multi-Cancer Early Detection",        emoji:"🧫" },
+    { ticker:"KTOS",  name:"Kratos — Autonomous Drone Warfare",           emoji:"🛸" },
+    { ticker:"TMDX",  name:"TransMedics — Organ Care System",             emoji:"🫀" },
+  ],
+};
+
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let spinning = false;
+let history = [];
+const allStocksFlat = Object.values(STOCKS).flat();
+
+// ─── PROBABILITY ENGINE ───────────────────────────────────────────────────────
+function rollTier() {
+  const order = ["unique","legendary","ultraRarePPP","ultraRarePP","ultraRarePlus","ultraRare","veryRare","somewhatRare","rare","common"];
+  const probs  = { unique:1/1024, legendary:1/512, ultraRarePPP:1/256, ultraRarePP:1/128, ultraRarePlus:1/64, ultraRare:1/32, veryRare:1/16, somewhatRare:1/8, rare:1/4, common:1/2 };
+  const total  = Object.values(probs).reduce((a,b)=>a+b,0);
+  const r      = Math.random();
+  if (r < 1 - total) return "secretUnique";
+  let adj = r - (1 - total), cum = 0;
+  for (const tier of order) { cum += probs[tier]; if (adj < cum) return tier; }
+  return "common";
+}
+
+function rollStock(tier) {
+  if (tier === "secretUnique") {
+    const base = allStocksFlat[Math.floor(Math.random() * allStocksFlat.length)];
+    return { ...base, tier: "secretUnique", shiny: true, name: `✨ ${base.name}`, _baseTier: base.tier };
+  }
+  const pool = STOCKS[tier];
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  return { ...pick, tier };
+}
+
+// ─── AUDIO ENGINE ─────────────────────────────────────────────────────────────
+let audioCtx = null;
+
+function getCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function playTone(freq, type, gainVal, startTime, duration, endFreq) {
+  const ctx = getCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, startTime);
+  if (endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, startTime + duration);
+  gain.gain.setValueAtTime(gainVal, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+  osc.start(startTime);
+  osc.stop(startTime + duration + 0.01);
+}
+
+// Button unlock click — mechanical thunk + high click
+function playUnlock() {
+  const ctx = getCtx();
+  const now = ctx.currentTime;
+  // Low thunk
+  playTone(120, 'sine', 0.5, now, 0.08, 60);
+  // Metal click
+  playTone(1800, 'square', 0.08, now, 0.03, 900);
+  // Short rattle
+  [0.02, 0.04, 0.06].forEach(t => playTone(800 + Math.random()*400, 'square', 0.04, now + t, 0.02));
+}
+
+// Single reel tick — short, crisp
+function playTick(intensity = 1.0) {
+  const ctx = getCtx();
+  const now = ctx.currentTime;
+  playTone(600 + Math.random() * 200, 'square', 0.06 * intensity, now, 0.018);
+  playTone(200, 'sine', 0.12 * intensity, now, 0.015);
+}
+
+// Reel ticking sequence — fast at start, decelerates to match CSS easing
+function startReelTicks(durationMs) {
+  const ctx = getCtx();
+  // Schedule ticks matching cubic-bezier(0.03, 1, 0.15, 1) deceleration
+  // Approximate: interval starts ~40ms, ends ~600ms over durationMs
+  const ticks = [];
+  let t = 0;
+  const totalDur = durationMs / 1000;
+  while (t < totalDur - 0.3) {
+    // Progress 0→1
+    const progress = t / totalDur;
+    // Easing: fast start, slow end — interval grows exponentially
+    const interval = 0.04 + progress * progress * 0.56;
+    ticks.push(t);
+    t += interval;
+  }
+  // Final slow clunk as it stops
+  ticks.push(totalDur - 0.15);
+
+  ticks.forEach((tickTime, i) => {
+    const intensity = i === ticks.length - 1 ? 1.8 : Math.max(0.3, 1 - (tickTime / totalDur) * 0.7);
+    const absTime = ctx.currentTime + tickTime;
+    playTone(500 + Math.random() * 300, 'square', 0.07 * intensity, absTime, 0.02);
+    playTone(180, 'sine', 0.15 * intensity, absTime, 0.02);
+  });
+}
+
+// Riff definitions per tier — notes as [freq, duration, delay]
+const TIER_RIFFS = {
+  common: (ctx, now) => {
+    // Simple two-note ding
+    playTone(523, 'sine', 0.3, now,       0.2);
+    playTone(659, 'sine', 0.25, now+0.15, 0.25);
+  },
+  rare: (ctx, now) => {
+    // Slightly brighter three-note
+    playTone(659, 'sine', 0.3, now,       0.15);
+    playTone(784, 'sine', 0.3, now+0.12,  0.15);
+    playTone(880, 'sine', 0.28, now+0.24, 0.3);
+  },
+  somewhatRare: (ctx, now) => {
+    // Crisp four-note with a shimmer
+    playTone(659, 'sine', 0.28, now,       0.15);
+    playTone(784, 'sine', 0.28, now+0.1,   0.15);
+    playTone(988, 'sine', 0.28, now+0.2,   0.15);
+    playTone(1175,'sine', 0.3,  now+0.3,   0.35);
+    playTone(1175,'triangle', 0.1, now+0.32, 0.3);
+  },
+  veryRare: (ctx, now) => {
+    // Ascending arpeggio
+    [523,659,784,1047].forEach((f,i) => playTone(f, 'sine', 0.28, now + i*0.1, 0.2));
+  },
+  ultraRare: (ctx, now) => {
+    // Triumphant four-note with triangle warmth
+    [523,659,784,1047].forEach((f,i) => playTone(f, 'triangle', 0.32, now + i*0.09, 0.25));
+    playTone(1047, 'sine', 0.2, now + 0.4, 0.4);
+  },
+  ultraRarePlus: (ctx, now) => {
+    // Power chord stab
+    [261,329,392,523].forEach(f => playTone(f, 'sawtooth', 0.08, now, 0.4));
+    [523,659,784].forEach((f,i) => playTone(f, 'sine', 0.2, now + 0.35 + i*0.1, 0.25));
+  },
+  ultraRarePP: (ctx, now) => {
+    // Dramatic reveal sting
+    playTone(196, 'sawtooth', 0.12, now, 0.3);
+    [392,494,587,784].forEach((f,i) => playTone(f, 'sine', 0.25, now + 0.1 + i*0.1, 0.2));
+    playTone(784, 'sine', 0.3, now + 0.55, 0.5);
+  },
+  ultraRarePPP: (ctx, now) => {
+    // Cyberpunk synth stab + sparkle
+    [130,196,261].forEach(f => playTone(f, 'sawtooth', 0.1, now, 0.5));
+    [1047,1319,1568,2093].forEach((f,i) => playTone(f, 'sine', 0.15, now + 0.1 + i*0.08, 0.15));
+    playTone(2093, 'sine', 0.2, now + 0.5, 0.6);
+  },
+  legendary: (ctx, now) => {
+    // Full fanfare — bass + ascending melody
+    [65,98,130].forEach(f => playTone(f, 'sawtooth', 0.12, now, 0.8));
+    const melody = [523,659,784,880,1047,880,1047,1319];
+    melody.forEach((f,i) => playTone(f, 'sine', 0.28, now + 0.05 + i*0.1, 0.18));
+    playTone(1319, 'sine', 0.35, now + 0.9, 0.8);
+  },
+  unique: (ctx, now) => {
+    // Magical chime cascade
+    [65,98,130].forEach(f => playTone(f, 'sine', 0.1, now, 1.2));
+    const chimes = [1047,1319,1568,2093,2637,2093,1568,2093,2637,3136];
+    chimes.forEach((f,i) => playTone(f, 'sine', 0.2, now + i*0.1, 0.3));
+    playTone(3136, 'sine', 0.25, now + 1.1, 1.0);
+  },
+  secretUnique: (ctx, now) => {
+    // Long magical shiny reveal — sparkle cascade + deep shimmer + soaring finish
+    // Deep bass shimmer
+    [55, 82, 110].forEach(f => playTone(f, 'sine', 0.12, now, 3.5));
+    // Rising sparkle arpeggio
+    const sparkle = [523,659,784,988,1175,1319,1568,1976,2349,2637,3136];
+    sparkle.forEach((f, i) => {
+      playTone(f, 'sine',     0.2,  now + i * 0.12, 0.25);
+      playTone(f * 2, 'sine', 0.06, now + i * 0.12, 0.15);
+    });
+    // Mid choir swell
+    [392, 494, 587, 740].forEach((f, i) =>
+      playTone(f, 'triangle', 0.12, now + 0.8 + i * 0.1, 1.2)
+    );
+    // Second sparkle cascade higher
+    const sparkle2 = [1319,1568,1976,2349,2637,3136,3951];
+    sparkle2.forEach((f, i) =>
+      playTone(f, 'sine', 0.14, now + 1.6 + i * 0.1, 0.2)
+    );
+    // Soaring final note with shimmer
+    playTone(1047, 'sine', 0.35, now + 2.5, 1.2, 2093);
+    playTone(2093, 'sine', 0.2,  now + 3.0, 0.8);
+    // Glitter tails
+    for (let i = 0; i < 8; i++) {
+      playTone(1500 + Math.random() * 2000, 'sine', 0.05,
+               now + 2.8 + i * 0.1, 0.15);
+    }
+  },
+};
+
+function playRiff(tierKey) {
+  const ctx = getCtx();
+  const fn = TIER_RIFFS[tierKey] || TIER_RIFFS.common;
+  fn(ctx, ctx.currentTime);
+}
+
+// ─── SLOT MACHINE ─────────────────────────────────────────────────────────────
+const track       = document.getElementById("slotTrack");
+const openBtn     = document.getElementById("openBtn");
+const WINNER_IDX  = 16;
+const TOTAL_ITEMS = 30;
+let winnerEl      = null;
+let winnerData    = null;
+
+function buildReel(winner) {
+  track.innerHTML = "";
+  winnerEl = null;
+  for (let i = 0; i < TOTAL_ITEMS; i++) {
+    const item = (i === WINNER_IDX) ? winner : allStocksFlat[Math.floor(Math.random() * allStocksFlat.length)];
+    const tier = TIERS[item.tier] || TIERS.common;
+    const div  = document.createElement("div");
+    div.className = "slot-item";
+    div.style.background   = tier.bg;
+    div.style.borderColor  = tier.color + "55";
+    div.style.color        = tier.color;
+
+    const em = document.createElement("div");
+    em.className = "s-emoji"; em.textContent = item.emoji;
+    div.appendChild(em);
+    const tk = document.createElement("div");
+    tk.className = "s-ticker"; tk.textContent = item.ticker;
+    div.appendChild(tk);
+
+    if (i === WINNER_IDX) winnerEl = div;
+    track.appendChild(div);
+  }
+}
+
+function runAnimation() {
+  if (!winnerEl) return;
+  const container       = track.parentElement;
+  const containerHalf   = container.offsetWidth / 2;
+  const winnerLeft      = winnerEl.offsetLeft;
+  const winnerHalf      = winnerEl.offsetWidth / 2;
+  const finalTranslate  = containerHalf - winnerLeft - winnerHalf;
+  const startTranslate  = container.offsetWidth + 200;
+
+  // Reset instantly
+  track.style.transition = "none";
+  track.style.transform  = `translateX(${startTranslate}px)`;
+
+  // Force reflow so reset takes hold before animation starts
+  void track.offsetWidth;
+
+  // Animate
+  track.style.transition = "transform 6s cubic-bezier(0.03, 1, 0.15, 1)";
+  track.style.transform  = `translateX(${finalTranslate}px)`;
+
+  // Show result on transitionend, with a fallback timeout
+  let fired = false;
+  function onDone() {
+    if (fired) return;
+    fired = true;
+    track.removeEventListener("transitionend", onDone);
+    showResult(winnerData);
+    spinning = false;
+    openBtn.disabled = false;
+    openBtn.textContent = "Open Case";
+  }
+  track.addEventListener("transitionend", onDone);
+  setTimeout(onDone, 6600);
+}
+
+openBtn.addEventListener("click", () => {
+  if (spinning) return;
+  spinning = true;
+  openBtn.disabled = true;
+  openBtn.textContent = "Opening...";
+
+  playUnlock();
+
+  winnerData = rollStock(rollTier());
+  buildReel(winnerData);
+
+  // Let the DOM paint the new reel, then animate
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    startReelTicks(6000);
+    runAnimation();
+  }));
+});
+
+
+
+const overlay    = document.getElementById("resultOverlay");
+const resultCard = document.getElementById("resultCard");
+const particles  = document.getElementById("cardParticles");
+const tierBadge  = document.getElementById("tierBadge");
+const cardArt    = document.getElementById("cardArt");
+const cardTicker = document.getElementById("cardTicker");
+const cardName   = document.getElementById("cardName");
+const closeBtn   = document.getElementById("closeBtn");
+
+function showResult(stock) {
+  const tier = TIERS[stock.tier];
+  resultCard.style.setProperty("--tc", tier.color);
+  resultCard.style.background = tier.bg;
+
+  // Shiny class
+  if (stock.shiny) {
+    resultCard.classList.add("shiny");
+  } else {
+    resultCard.classList.remove("shiny");
+  }
+
+  tierBadge.textContent = tier.label;
+  tierBadge.style.borderColor = tier.color;
+  tierBadge.style.color = tier.color;
+  cardTicker.textContent = stock.ticker;
+  // Shiny ticker uses CSS gradient animation; clear inline styles so CSS takes over
+  if (stock.shiny) {
+    cardTicker.style.color = "";
+    cardTicker.style.textShadow = "";
+  } else {
+    cardTicker.style.color = tier.color;
+    cardTicker.style.textShadow = `0 0 20px ${tier.color}`;
+  }
+  cardName.textContent = stock.name;
+
+  cardArt.innerHTML = stock.emoji;
+  cardArt.style.borderColor = tier.color;
+  cardArt.style.boxShadow = `0 0 30px ${tier.color}`;
+
+  // Show alt tickers if present
+  const altsEl = document.getElementById("cardAlts");
+  if (stock.alts && stock.alts.length) {
+    altsEl.innerHTML = `<span class="alts-label">also:</span> ${stock.alts.map(a => `<span class="alt-chip">${a}</span>`).join("")}`;
+    altsEl.style.display = "flex";
+  } else {
+    altsEl.style.display = "none";
+  }
+
+  // Info links — shinies link to their underlying ticker normally
+  const linksEl = document.getElementById("cardLinks");
+  const t = stock.ticker;
+  linksEl.innerHTML = [
+    { label: "Yahoo Finance", url: `https://finance.yahoo.com/quote/${t}` },
+    { label: "MarketWatch",   url: `https://www.marketwatch.com/investing/fund/${t.toLowerCase()}` },
+    { label: "ETF.com",       url: `https://www.etf.com/${t}` },
+    { label: "Morningstar",   url: `https://www.morningstar.com/etfs/arcx/${t.toLowerCase()}/overview` },
+  ].map(l =>
+    `<a class="card-link" href="${l.url}" target="_blank" rel="noopener">${l.label}</a>`
+  ).join("");
+
+  // Play rarity riff
+  playRiff(stock.tier);
+
+  // Particles
+  particles.innerHTML = "";
+  for (let i = 0; i < 24; i++) {
+    const p = document.createElement("div");
+    p.className = "particle";
+    p.style.cssText = `
+      left:${50+(Math.random()-.5)*80}%;
+      top:${50+(Math.random()-.5)*80}%;
+      width:${2+Math.random()*4}px;
+      height:${2+Math.random()*4}px;
+      --tc:${tier.color};
+      --dx:${(Math.random()-.5)*300}px;
+      --dy:${(Math.random()-.5)*300}px;
+      animation-delay:${Math.random()*0.5}s;
+    `;
+    particles.appendChild(p);
+  }
+
+  // Re-trigger card animation
+  resultCard.style.animation = "none";
+  void resultCard.offsetWidth;
+  resultCard.style.animation = "";
+
+  overlay.classList.remove("hidden");
+  addHistory(stock);
+  addToCollection(stock);
+}
+
+function hideResult() { overlay.classList.add("hidden"); }
+closeBtn.addEventListener("click", hideResult);
+overlay.addEventListener("click", e => { if (e.target === overlay) hideResult(); });
+
+// ─── HISTORY ──────────────────────────────────────────────────────────────────
+const historySection = document.getElementById("historySection");
+const historyGrid    = document.getElementById("historyGrid");
+
+function addHistory(stock) {
+  history.unshift(stock);
+  if (history.length > 100) history.pop();
+  historySection.style.display = "block";
+  historyGrid.innerHTML = "";
+  history.slice(0, 30).forEach(h => {
+    const chip = document.createElement("div");
+    chip.className = "history-chip";
+    chip.style.setProperty("--c", TIERS[h.tier].color);
+    chip.textContent = `${h.emoji} ${h.ticker}`;
+    historyGrid.appendChild(chip);
+  });
+  updateChart();
+}
+
+// ─── DISTRIBUTION CHART ───────────────────────────────────────────────────────
+const chartSection = document.getElementById("chartSection");
+const chartBars    = document.getElementById("chartBars");
+const TIER_ORDER   = ["common","rare","somewhatRare","veryRare","ultraRare","ultraRarePlus","ultraRarePP","ultraRarePPP","legendary","unique","secretUnique"];
+
+// Build bar rows once
+const barEls = {};
+TIER_ORDER.forEach(key => {
+  const tier = TIERS[key];
+  const row  = document.createElement("div"); row.className = "chart-row";
+
+  const label = document.createElement("div"); label.className = "chart-label";
+  label.textContent = tier.label; label.style.color = tier.color;
+
+  const track = document.createElement("div"); track.className = "chart-bar-track";
+  const fill  = document.createElement("div"); fill.className = "chart-bar-fill";
+  fill.style.background = `linear-gradient(90deg, ${tier.color}99, ${tier.color})`;
+  fill.style.boxShadow  = `0 0 8px ${tier.color}66`;
+  track.appendChild(fill);
+
+  const count = document.createElement("div"); count.className = "chart-count";
+  count.style.color = tier.color; count.textContent = "0";
+
+  const pct = document.createElement("div"); pct.className = "chart-pct";
+  pct.textContent = "";
+
+  row.appendChild(label); row.appendChild(track); row.appendChild(count); row.appendChild(pct);
+  chartBars.appendChild(row);
+  barEls[key] = { fill, count, pct };
+});
+
+function updateChart() {
+  chartSection.style.display = "block";
+  const total = history.length;
+  if (total === 0) return;
+
+  // Count by tier
+  const counts = {};
+  TIER_ORDER.forEach(k => counts[k] = 0);
+  history.forEach(h => { if (counts[h.tier] !== undefined) counts[h.tier]++; });
+
+  const maxCount = Math.max(...Object.values(counts), 1);
+
+  TIER_ORDER.forEach(key => {
+    const n   = counts[key];
+    const pct = ((n / total) * 100).toFixed(1);
+    const barW = (n / maxCount) * 100;
+    barEls[key].fill.style.width  = barW + "%";
+    barEls[key].count.textContent = n;
+    barEls[key].pct.textContent   = n > 0 ? pct + "%" : "";
+  });
+}
+
+// ─── PORTFOLIO ────────────────────────────────────────────────────────────────
+// Collection: deduplicated by ticker, with count
+let collection = []; // array of { ...stock, count }
+
+const portfolioPanel  = document.getElementById("portfolioPanel");
+const holdingsList    = document.getElementById("holdingsList");
+const healthScoreEl   = document.getElementById("healthScore");
+const healthGradeEl   = document.getElementById("healthGrade");
+const healthBreakdown = document.getElementById("healthBreakdown");
+const exportBtn       = document.getElementById("exportBtn");
+const importInput     = document.getElementById("importInput");
+const clearBtn        = document.getElementById("clearBtn");
+
+// Asset class tags for each stock — used by health score
+const ASSET_CLASS = {
+  // Common
+  "VOO":"US_EQ","VTI":"US_EQ","VT":"WORLD_EQ","VXUS":"INTL_EQ","VEA":"INTL_EQ",
+  "VWO":"EM_EQ","BND":"US_BOND","BNDX":"INTL_BOND","BSV":"US_BOND","BIL":"CASH",
+  "IEF":"US_BOND","TLT":"US_BOND","LQD":"US_BOND","HYG":"US_BOND","AOR":"US_EQ",
+  // Uncommon (rare key)
+  "QQQ":"US_EQ","SCHD":"US_EQ","VNQ":"REIT","VNQI":"REIT","GLD":"COMMODITY",
+  "SLV":"COMMODITY","PDBC":"COMMODITY","TIP":"US_BOND","VPU":"US_EQ","VHT":"US_EQ",
+  "VFH":"US_EQ","VAW":"US_EQ","VIS":"US_EQ","VCR":"US_EQ","VDC":"US_EQ",
+  "VGT":"US_EQ","VOX":"US_EQ","XLE":"US_EQ","XOP":"US_EQ","MOO":"US_EQ",
+  "XME":"US_EQ","PAVE":"US_EQ","PFF":"US_EQ","JEPI":"US_EQ","RSP":"US_EQ","NOBL":"US_EQ",
+  // Somewhat Rare (somewhatRare key)
+  "SOXX":"US_EQ","CIBR":"US_EQ","CLOU":"US_EQ","BOTZ":"US_EQ","ARKK":"US_EQ",
+  "FINX":"US_EQ","IWM":"US_EQ","VBR":"US_EQ","VBK":"US_EQ","VO":"US_EQ",
+  "MTUM":"US_EQ","VLUE":"US_EQ","QUAL":"US_EQ","USMV":"US_EQ",
+  "VSS":"INTL_EQ","EFV":"INTL_EQ","VYMI":"INTL_EQ",
+  "GDX":"COMMODITY","DBO":"COMMODITY","DBB":"COMMODITY","WEAT":"COMMODITY","BLOK":"ALTS",
+  // Rare (veryRare key) — blue chips
+  "BRK.B":"US_EQ","JPM":"US_EQ","V":"US_EQ","MA":"US_EQ","JNJ":"US_EQ",
+  "PG":"US_EQ","KO":"US_EQ","WMT":"US_EQ","COST":"US_EQ","HD":"US_EQ",
+  "MCD":"US_EQ","NEE":"US_EQ","AMT":"REIT","PLD":"REIT",
+  "UNH":"US_EQ","PEP":"US_EQ","BAC":"US_EQ","WFC":"US_EQ","GS":"US_EQ","BLK":"US_EQ",
+  "LMT":"US_EQ","RTX":"US_EQ","CAT":"US_EQ","DE":"US_EQ","UPS":"US_EQ",
+  "CVX":"US_EQ","XOM":"US_EQ","COP":"US_EQ","NEM":"COMMODITY","FCX":"COMMODITY",
+  // Very Rare (ultraRare key)
+  "MSFT":"US_EQ","AAPL":"US_EQ","GOOGL":"US_EQ","SLB":"US_EQ",
+  "ADM":"US_EQ","BG":"US_EQ","AME":"US_EQ","ITW":"US_EQ","MMM":"US_EQ",
+};
+
+function getAssetClass(stock) {
+  return ASSET_CLASS[stock.ticker] || (stock.tier === "secretUnique" ? "SPECULATIVE" : "US_EQ");
+}
+
+// ── HEALTH SCORE ──
+// Scored 0-100 across 4 dimensions, each worth 25 pts
+function computeHealth(col) {
+  if (col.length === 0) return null;
+
+  const tickers   = col.map(c => c.ticker);
+  const classes   = col.map(c => getAssetClass(c));
+  const classSet  = new Set(classes);
+  const total     = col.reduce((s, c) => s + c.count, 0);
+
+  // 1. Asset Class Diversity (25pts)
+  // Reward having: equities + bonds + alternatives/commodities/REITs
+  const hasEquity = classes.some(c => ["US_EQ","INTL_EQ","EM_EQ","WORLD_EQ"].includes(c));
+  const hasBond   = classes.some(c => ["US_BOND","INTL_BOND","CASH"].includes(c));
+  const hasAlt    = classes.some(c => ["REIT","COMMODITY","ALTS"].includes(c));
+  const hasIntl   = classes.some(c => ["INTL_EQ","EM_EQ","WORLD_EQ","INTL_BOND"].includes(c));
+  let diversityScore = 0;
+  if (hasEquity) diversityScore += 8;
+  if (hasBond)   diversityScore += 8;
+  if (hasAlt)    diversityScore += 5;
+  if (hasIntl)   diversityScore += 4;
+
+  // 2. Equity Geographic Spread (25pts)
+  const hasUS    = classes.some(c => c === "US_EQ");
+  const hasDev   = tickers.some(t => ["VEA","EFA","SCHF","VXUS","VEU","IXUS","VT","ACWI"].includes(t));
+  const hasEM    = tickers.some(t => ["VWO","EEM","IEMG","SCHE"].includes(t));
+  let geoScore = 0;
+  if (hasUS)  geoScore += 10;
+  if (hasDev) geoScore += 10;
+  if (hasEM)  geoScore += 5;
+
+  // 3. Concentration risk (25pts)
+  // Penalise high-speculative holdings
+  const specCount = col.filter(c => ["secretUnique","unique","legendary"].includes(c.tier)).reduce((s,c) => s+c.count, 0);
+  const specRatio = specCount / total;
+  const concScore = Math.round(25 * Math.max(0, 1 - specRatio * 2));
+
+  // 4. Core foundation (25pts)
+  // Reward having broad-market index ETFs as anchors
+  const coreSet = ["VOO","VTI","VT","VXUS","BND","BNDX","VEA","VWO","IEF","TLT","LQD","AOR","BSV","BIL"];
+  const hasCoreCount = tickers.filter(t => coreSet.includes(t)).length;
+  const coreScore = Math.min(25, hasCoreCount * 8);
+
+  const total_score = diversityScore + geoScore + concScore + coreScore;
+
+  return {
+    score: total_score,
+    breakdown: [
+      { label: "Asset Class Mix",      val: diversityScore, max: 25 },
+      { label: "Geographic Spread",    val: geoScore,       max: 25 },
+      { label: "Concentration Risk",   val: concScore,      max: 25 },
+      { label: "Core Foundation",      val: coreScore,      max: 25 },
+    ]
+  };
+}
+
+function gradeFromScore(s) {
+  if (s >= 90) return { grade: "S",  color: "#ff00ff", desc: "Exceptional" };
+  if (s >= 75) return { grade: "A",  color: "#ffd700", desc: "Strong" };
+  if (s >= 60) return { grade: "B",  color: "#4e9ef5", desc: "Solid" };
+  if (s >= 45) return { grade: "C",  color: "#a855f7", desc: "Developing" };
+  if (s >= 30) return { grade: "D",  color: "#f97316", desc: "Fragile" };
+  return              { grade: "F",  color: "#ef4444", desc: "Speculative" };
+}
+
+function barColor(val, max) {
+  const pct = val / max;
+  if (pct >= 0.8) return "#4ade80";
+  if (pct >= 0.5) return "#ffd700";
+  if (pct >= 0.25) return "#f97316";
+  return "#ef4444";
+}
+
+function renderPortfolio() {
+  if (collection.length === 0) { portfolioPanel.style.display = "none"; return; }
+  portfolioPanel.style.display = "block";
+
+  // Health score
+  const health = computeHealth(collection);
+  if (health) {
+    const { grade, color, desc } = gradeFromScore(health.score);
+    healthScoreEl.textContent = health.score;
+    healthScoreEl.style.color = color;
+    healthScoreEl.style.textShadow = `0 0 20px ${color}88`;
+    healthGradeEl.textContent = `${grade} — ${desc}`;
+    healthGradeEl.style.color = color;
+
+    healthBreakdown.innerHTML = "";
+    health.breakdown.forEach(row => {
+      const pct = Math.round((row.val / row.max) * 100);
+      const c   = barColor(row.val, row.max);
+      const el  = document.createElement("div");
+      el.className = "health-row";
+      el.innerHTML = `
+        <div class="health-row-label">${row.label}</div>
+        <div class="health-bar-track"><div class="health-bar-fill" style="width:${pct}%;background:${c}"></div></div>
+        <div class="health-row-val" style="color:${c}">${row.val}/${row.max}</div>
+      `;
+      healthBreakdown.appendChild(el);
+    });
+  }
+
+  // Holdings list — sort by tier rarity then alpha
+  const TIER_RANK = { secretUnique:0, unique:1, legendary:2, ultraRarePPP:3, ultraRarePP:4, ultraRarePlus:5, ultraRare:6, veryRare:7, somewhatRare:8, rare:9, common:10 };
+  const sorted = [...collection].sort((a,b) => TIER_RANK[a.tier] - TIER_RANK[b.tier] || a.ticker.localeCompare(b.ticker));
+
+  holdingsList.innerHTML = "";
+  sorted.forEach(h => {
+    const tier = TIERS[h.tier];
+    const row  = document.createElement("div");
+    row.className = "holding-row";
+    row.style.setProperty("--c", tier.color);
+    row.innerHTML = `
+      <div class="holding-emoji">${h.emoji}</div>
+      <div class="holding-ticker">${h.ticker}</div>
+      <div class="holding-name">${h.name}</div>
+      <div class="holding-tier">${tier.label}</div>
+      ${h.count > 1 ? `<div class="holding-count">×${h.count}</div>` : ""}
+    `;
+    holdingsList.appendChild(row);
+  });
+}
+
+function addToCollection(stock) {
+  const existing = collection.find(c => c.ticker === stock.ticker);
+  if (existing) {
+    existing.count++;
+  } else {
+    collection.push({ ...stock, count: 1 });
+  }
+  renderPortfolio();
+}
+
+// Hook into showResult by calling addToCollection directly from there
+
+// ── EXPORT ──
+exportBtn.addEventListener("click", () => {
+  if (collection.length === 0) return;
+  const health = computeHealth(collection);
+  const { grade, desc } = health ? gradeFromScore(health.score) : { grade:"—", desc:"—" };
+  const total = collection.reduce((s,c) => s+c.count, 0);
+
+  const lines = [
+    "═══════════════════════════════════════",
+    "  STOCK CASE — PORTFOLIO EXPORT",
+    `  ${new Date().toLocaleDateString("en-US", { year:"numeric", month:"long", day:"numeric" })}`,
+    "═══════════════════════════════════════",
+    "",
+    `  Total Pulls : ${total}`,
+    `  Holdings    : ${collection.length}`,
+    health ? `  Health Score: ${health.score}/100  (${grade} — ${desc})` : "",
+    "",
+    "───────────────────────────────────────",
+    "  HOLDINGS",
+    "───────────────────────────────────────",
+    ...collection
+      .sort((a,b) => a.ticker.localeCompare(b.ticker))
+      .map(h => {
+        const alt = h.alts ? `  [also: ${h.alts.join(", ")}]` : "";
+        const cnt = h.count > 1 ? ` (×${h.count})` : "";
+        return `  ${h.ticker.padEnd(10)} ${h.name}${cnt}\n             Tier: ${TIERS[h.tier].label}${alt}`;
+      }),
+    "",
+    health ? [
+      "───────────────────────────────────────",
+      "  HEALTH BREAKDOWN",
+      "───────────────────────────────────────",
+      ...health.breakdown.map(r => `  ${r.label.padEnd(22)} ${r.val}/${r.max}`),
+    ].join("\n") : "",
+    "",
+    "═══════════════════════════════════════",
+    "  ⚠ Not investment advice.",
+    "  For entertainment purposes only.",
+    "═══════════════════════════════════════",
+  ].join("\n");
+
+  const blob = new Blob([lines], { type: "text/plain" });
+  const a    = document.createElement("a");
+  a.href     = URL.createObjectURL(blob);
+  a.download = `stock-case-portfolio-${Date.now()}.txt`;
+  a.click();
+});
+
+// ── IMPORT ──
+importInput.addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const text = ev.target.result;
+    // Parse lines that look like "  TICKER     Name (×N)"
+    const lines = text.split("\n");
+    let imported = 0;
+    const allStocks = Object.values(STOCKS).flat();
+    const allKnown  = [...allStocks];
+
+    collection = []; // reset before import
+
+    lines.forEach(line => {
+      const match = line.match(/^\s{2}([A-Z.]{1,6})\s+(.+?)(\s+\(×(\d+)\))?$/);
+      if (!match) return;
+      const ticker = match[1].trim();
+      const count  = parseInt(match[4] || "1", 10);
+      const found  = allKnown.find(s => s.ticker === ticker);
+      if (found) {
+        collection.push({ ...found, count });
+        imported++;
+      }
+    });
+
+    if (imported > 0) {
+      renderPortfolio();
+      alert(`Imported ${imported} holding${imported > 1 ? "s" : ""} successfully.`);
+    } else {
+      alert("No valid holdings found in that file.");
+    }
+    importInput.value = "";
+  };
+  reader.readAsText(file);
+});
+
+// ── CLEAR ──
+clearBtn.addEventListener("click", () => {
+  if (!confirm("Clear your entire portfolio?")) return;
+  collection = [];
+  history    = [];
+  historySection.style.display = "none";
+  historyGrid.innerHTML = "";
+  portfolioPanel.style.display = "none";
+  TIER_ORDER.forEach(key => {
+    barEls[key].fill.style.width  = "0%";
+    barEls[key].count.textContent = "0";
+    barEls[key].pct.textContent   = "";
+  });
+  chartSection.style.display = "none";
+});
+
+const tierRows = document.getElementById("tierRows");
+[
+  { key:"common",        odds:"1 in 2",    pool: STOCKS.common },
+  { key:"rare",          odds:"1 in 4",    pool: STOCKS.rare },
+  { key:"somewhatRare",  odds:"1 in 8",    pool: STOCKS.somewhatRare },
+  { key:"veryRare",      odds:"1 in 16",   pool: STOCKS.veryRare },
+  { key:"ultraRare",     odds:"1 in 32",   pool: STOCKS.ultraRare },
+  { key:"ultraRarePlus", odds:"1 in 64",   pool: STOCKS.ultraRarePlus },
+  { key:"ultraRarePP",   odds:"1 in 128",  pool: STOCKS.ultraRarePP },
+  { key:"ultraRarePPP",  odds:"1 in 256",  pool: STOCKS.ultraRarePPP },
+  { key:"legendary",     odds:"1 in 512",  pool: STOCKS.legendary },
+  { key:"unique",        odds:"1 in 1024", pool: STOCKS.unique },
+  { key:"secretUnique",  odds:"remainder", pool: null, desc:"✨ Shiny — any stock from the full list" },
+].forEach(({ key, odds, pool }) => {
+  const tier = TIERS[key];
+  const row  = document.createElement("div");
+  row.className = "tier-row"; row.style.setProperty("--c", tier.color);
+  row.innerHTML = `
+    <span class="tr-name">${tier.label}</span>
+    <span class="tr-odds">${odds}</span>
+    <span class="tr-stocks">${pool ? pool.map(s=>s.ticker).join(", ") : "✨ Any stock from the full list"}</span>
+  `;
+  tierRows.appendChild(row);
+});
+</script>
+</body>
+</html>

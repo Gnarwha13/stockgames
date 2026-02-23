@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Roguelite</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #080a0f;
+  --bg2: #0d1017;
+  --border: #1a1f2e;
+  --text: #c8cdd8;
+  --dim: #3a3f50;
+  --accent: #4e9ef5;
+  --gold: #ffd700;
+  --green: #22c55e;
+  --red: #ef4444;
+  --pink: #ec4899;
+  --cyan: #06b6d4;
+  --purple: #a855f7;
+  --orange: #f97316;
+}
+
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Rajdhani', sans-serif; overflow-x: hidden; }
+
+/* scanlines */
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: 999; pointer-events: none;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+}
+
+h1, h2, h3, .mono { font-family: 'Orbitron', monospace; }
+
+/* ── SCREENS ── */
+.screen { display: none; min-height: 100vh; flex-direction: column; align-items: center; padding: 2rem 1rem 4rem; }
+.screen.active { display: flex; }
+
+/* ── TITLE SCREEN ── */
+#screenTitle {
+  justify-content: center; gap: 2rem;
+  background: radial-gradient(ellipse at 50% 30%, #0a1628 0%, var(--bg) 70%);
+}
+.title-logo { text-align: center; }
+.title-logo h1 { font-size: clamp(2rem, 6vw, 4rem); font-weight: 900; letter-spacing: 0.15em;
+  background: linear-gradient(180deg, #fff 0%, var(--accent) 60%, #1a3a6a 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.title-logo .sub { font-size: 0.8rem; letter-spacing: 0.5em; color: var(--dim); margin-top: 0.5rem; }
+.title-disclaimer { font-size: 0.65rem; color: #2a2f3a; letter-spacing: 0.1em; max-width: 500px; text-align: center; border: 1px solid #111; padding: 0.5rem 1rem; }
+
+.btn-primary {
+  font-family: 'Orbitron', monospace; font-size: 0.8rem; font-weight: 700;
+  letter-spacing: 0.25em; text-transform: uppercase; padding: 1rem 3rem;
+  background: var(--accent); color: #000; border: none; cursor: pointer;
+  clip-path: polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%);
+  transition: all 0.2s; position: relative; overflow: hidden;
+}
+.btn-primary::after { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,0); transition: 0.2s; }
+.btn-primary:hover::after { background: rgba(255,255,255,0.15); }
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(78,158,245,0.4); }
+
+.btn-secondary {
+  font-family: 'Orbitron', monospace; font-size: 0.7rem; letter-spacing: 0.2em;
+  padding: 0.7rem 2rem; background: transparent; color: var(--dim);
+  border: 1px solid var(--border); cursor: pointer; transition: all 0.2s;
+  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+}
+.btn-secondary:hover { color: var(--text); border-color: var(--dim); }
+.btn-secondary:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* ── HUD ── */
+.hud {
+  display: flex; align-items: center; gap: 2rem; flex-wrap: wrap;
+  width: 100%; max-width: 900px; padding: 0.75rem 1.5rem;
+  border: 1px solid var(--border); background: var(--bg2);
+  margin-bottom: 1.5rem;
+}
+.hud-item { display: flex; flex-direction: column; gap: 0.1rem; }
+.hud-label { font-size: 0.5rem; letter-spacing: 0.3em; color: var(--dim); text-transform: uppercase; font-family: 'Orbitron', monospace; }
+.hud-val { font-family: 'Orbitron', monospace; font-size: 1.1rem; font-weight: 700; }
+.hud-val.gold { color: var(--gold); }
+.hud-val.green { color: var(--green); }
+.hud-val.red { color: var(--red); }
+.hud-sep { width: 1px; height: 36px; background: var(--border); }
+.hud-round-pips { display: flex; gap: 4px; align-items: center; }
+.round-pip { width: 10px; height: 10px; border: 1px solid var(--border); transition: all 0.3s; }
+.round-pip.done { background: var(--green); border-color: var(--green); }
+.round-pip.win { background: var(--green); border-color: var(--green); box-shadow: 0 0 6px var(--green); }
+.round-pip.loss { background: var(--red); border-color: var(--red); }
+.round-pip.current { border-color: var(--accent); animation: pipPulse 1s ease-in-out infinite; }
+@keyframes pipPulse { 0%,100% { box-shadow: 0 0 0 var(--accent); } 50% { box-shadow: 0 0 8px var(--accent); } }
+
+/* ── ROLL SCREEN ── */
+#screenRoll { gap: 1.5rem; }
+.roll-title { font-family: 'Orbitron', monospace; font-size: 0.7rem; letter-spacing: 0.3em; color: var(--dim); text-align: center; }
+.roll-context { font-size: 0.8rem; color: var(--dim); text-align: center; max-width: 600px; line-height: 1.6; }
+
+.cards-grid {
+  display: grid; gap: 0.75rem; width: 100%; max-width: 900px;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+}
+.roll-card {
+  border: 1px solid var(--border); background: var(--bg2); padding: 0.75rem;
+  cursor: pointer; transition: all 0.2s; position: relative;
+  display: flex; flex-direction: column; gap: 0.4rem; min-height: 120px;
+}
+.roll-card:hover:not(.selected):not(.locked-card):not(.disabled) { border-color: var(--accent); transform: translateY(-2px); }
+.roll-card.selected { border-color: var(--green); background: rgba(34,197,94,0.08); box-shadow: 0 0 15px rgba(34,197,94,0.2); }
+.roll-card.locked-card { border-color: var(--gold); background: rgba(255,215,0,0.05); }
+.roll-card.locked-card::before { content: '🔒'; position: absolute; top: 4px; right: 6px; font-size: 0.6rem; }
+.roll-card.disabled { opacity: 0.35; cursor: not-allowed; }
+.rc-emoji { font-size: 1.5rem; }
+.rc-ticker { font-family: 'Orbitron', monospace; font-size: 0.75rem; font-weight: 700; }
+.rc-name { font-size: 0.6rem; color: var(--dim); line-height: 1.3; }
+.rc-tier { font-family: 'Orbitron', monospace; font-size: 0.45rem; letter-spacing: 0.15em; margin-top: auto; }
+.rc-selected-num { position: absolute; top: 4px; right: 6px; font-family: 'Orbitron', monospace; font-size: 0.6rem; color: var(--green); }
+
+.roll-actions { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; align-items: center; }
+.roll-info { font-size: 0.7rem; color: var(--dim); text-align: center; }
+
+/* reroll indicator */
+.reroll-badge {
+  font-family: 'Orbitron', monospace; font-size: 0.55rem; letter-spacing: 0.1em;
+  padding: 0.3rem 0.8rem; border: 1px solid var(--gold); color: var(--gold);
+  cursor: pointer; transition: all 0.2s;
+}
+.reroll-badge:hover { background: rgba(255,215,0,0.1); }
+.reroll-badge.used { border-color: var(--border); color: var(--dim); cursor: not-allowed; }
+
+/* ── BATTLE SCREEN ── */
+#screenBattle { gap: 1.5rem; }
+
+.battle-arena {
+  width: 100%; max-width: 900px; display: flex; flex-direction: column; gap: 1rem;
+}
+
+.arena-header {
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: 'Orbitron', monospace; font-size: 0.65rem; letter-spacing: 0.2em;
+  color: var(--dim);
+}
+.arena-vs { color: var(--red); font-size: 1.2rem; font-weight: 900; }
+
+.portfolio-panel {
+  border: 1px solid var(--border); background: var(--bg2); padding: 1.25rem;
+}
+.portfolio-panel.player { border-color: rgba(78,158,245,0.3); }
+.portfolio-panel.opponent { border-color: rgba(239,68,68,0.3); }
+.pp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.pp-label { font-family: 'Orbitron', monospace; font-size: 0.6rem; letter-spacing: 0.25em; }
+.pp-label.player { color: var(--accent); }
+.pp-label.opponent { color: var(--red); }
+.pp-total { font-family: 'Orbitron', monospace; font-size: 1.4rem; font-weight: 900; transition: color 0.5s; }
+
+.holdings-row { display: flex; flex-direction: column; gap: 0.5rem; }
+.holding-bar-row { display: flex; align-items: center; gap: 0.75rem; font-size: 0.75rem; }
+.hb-emoji { width: 20px; text-align: center; }
+.hb-ticker { font-family: 'Orbitron', monospace; font-size: 0.65rem; min-width: 55px; }
+.hb-bar-track { flex: 1; height: 6px; background: #111; position: relative; }
+.hb-bar-fill { height: 100%; transition: width 1s ease, background 0.5s; }
+.hb-return { font-family: 'Orbitron', monospace; font-size: 0.65rem; min-width: 60px; text-align: right; }
+.hb-locked { font-size: 0.6rem; color: var(--gold); margin-left: 2px; }
+
+.health-bonus-row {
+  margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border);
+  display: flex; gap: 1rem; flex-wrap: wrap;
+}
+.hb-bonus-chip {
+  font-family: 'Orbitron', monospace; font-size: 0.5rem; letter-spacing: 0.1em;
+  padding: 0.2rem 0.6rem; border: 1px solid;
+}
+
+.battle-divider {
+  display: flex; align-items: center; gap: 1rem; color: var(--dim);
+  font-family: 'Orbitron', monospace; font-size: 0.65rem; letter-spacing: 0.2em;
+}
+.battle-divider::before, .battle-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+.battle-result-banner {
+  text-align: center; padding: 1.5rem;
+  border: 1px solid var(--border); background: var(--bg2);
+  display: none;
+}
+.battle-result-banner.visible { display: block; }
+.brb-title { font-family: 'Orbitron', monospace; font-size: 1.8rem; font-weight: 900; margin-bottom: 0.5rem; }
+.brb-subtitle { font-size: 0.85rem; color: var(--dim); }
+.brb-money { font-family: 'Orbitron', monospace; font-size: 1rem; color: var(--gold); margin-top: 0.5rem; }
+
+.sim-btn {
+  font-family: 'Orbitron', monospace; font-size: 0.75rem; font-weight: 700;
+  letter-spacing: 0.2em; padding: 0.9rem 2.5rem; background: transparent;
+  color: var(--accent); border: 1px solid var(--accent); cursor: pointer;
+  clip-path: polygon(10px 0%, 100% 0%, calc(100% - 10px) 100%, 0% 100%);
+  transition: all 0.2s;
+}
+.sim-btn:hover { background: rgba(78,158,245,0.1); box-shadow: 0 0 20px rgba(78,158,245,0.3); }
+.sim-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* ── BATTLE CHART ── */
+#battleChart { image-rendering: pixelated; }
+
+/* ── SHOP SCREEN ── */
+#screenShop { gap: 1.5rem; }
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; width: 100%; max-width: 900px; }
+.shop-item {
+  border: 1px solid var(--border); background: var(--bg2); padding: 1.25rem;
+  display: flex; flex-direction: column; gap: 0.75rem; transition: border-color 0.2s;
+}
+.shop-item:hover:not(.purchased):not(.cant-afford) { border-color: var(--gold); }
+.shop-item.purchased { border-color: var(--green); opacity: 0.6; }
+.shop-item.cant-afford { opacity: 0.4; }
+.si-icon { font-size: 1.8rem; }
+.si-name { font-family: 'Orbitron', monospace; font-size: 0.65rem; letter-spacing: 0.1em; color: var(--text); }
+.si-desc { font-size: 0.7rem; color: var(--dim); line-height: 1.4; flex: 1; }
+.si-price { font-family: 'Orbitron', monospace; font-size: 0.9rem; color: var(--gold); }
+.si-buy {
+  font-family: 'Orbitron', monospace; font-size: 0.55rem; letter-spacing: 0.15em;
+  padding: 0.4rem; background: transparent; border: 1px solid var(--gold);
+  color: var(--gold); cursor: pointer; transition: all 0.2s; text-transform: uppercase;
+}
+.si-buy:hover { background: rgba(255,215,0,0.1); }
+.si-buy:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── GAME OVER SCREEN ── */
+#screenGameOver { justify-content: center; gap: 2rem; text-align: center; }
+.go-title { font-family: 'Orbitron', monospace; font-size: clamp(2rem,6vw,3.5rem); font-weight: 900; }
+.go-stats { display: flex; flex-direction: column; gap: 0.5rem; max-width: 400px; }
+.go-stat { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 0.4rem 0; border-bottom: 1px solid var(--border); }
+.go-stat span:last-child { font-family: 'Orbitron', monospace; color: var(--accent); }
+
+/* ── DIFFICULTY BADGE ── */
+.difficulty-badge {
+  font-family: 'Orbitron', monospace; font-size: 0.55rem; letter-spacing: 0.2em;
+  padding: 0.25rem 0.75rem; border: 1px solid;
+}
+
+/* ── MULTIPLIER BREAKDOWN ── */
+.mult-breakdown {
+  font-size: 0.65rem; color: var(--dim); display: flex; flex-direction: column; gap: 0.2rem;
+  margin-top: 0.5rem;
+}
+.mult-row { display: flex; justify-content: space-between; gap: 1rem; }
+.mult-val.pos { color: var(--green); }
+.mult-val.neg { color: var(--red); }
+.mult-val.neu { color: var(--dim); }
+
+/* ── ANIMATIONS ── */
+@keyframes slideIn { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+@keyframes countUp { from { opacity:0; transform: scale(0.8); } to { opacity:1; transform: scale(1); } }
+
+.animate-in { animation: slideIn 0.4s ease forwards; }
+.pulse { animation: pulse 1.5s ease-in-out infinite; }
+
+/* ── SECTION TITLE ── */
+.section-title {
+  font-family: 'Orbitron', monospace; font-size: 0.65rem; letter-spacing: 0.35em;
+  color: var(--dim); text-transform: uppercase; margin-bottom: 0.25rem;
+  border-left: 2px solid var(--accent); padding-left: 0.75rem;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 600px) {
+  .cards-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════ TITLE SCREEN -->
+<div class="screen active" id="screenTitle">
+  <div class="title-logo">
+    <h1>STOCK ROGUELITE</h1>
+    <div class="sub">PORTFOLIO COMBAT SIMULATOR</div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:0.75rem;align-items:center;max-width:540px;text-align:center">
+    <div style="font-size:0.85rem;color:var(--dim);line-height:1.8">
+      Build a portfolio from gacha rolls. Face increasingly stable opponents.<br>
+      Win rounds to earn cash. Upgrade your strategy. Survive 10 rounds.
+    </div>
+    <div style="font-size:0.75rem;color:var(--dim);line-height:1.7;border:1px solid var(--border);padding:1rem;margin-top:0.5rem">
+      <span style="color:var(--text);font-family:'Orbitron',monospace;font-size:0.6rem;letter-spacing:0.2em">HOW MULTIPLIERS WORK</span><br><br>
+      Your portfolio health score boosts returns:<br>
+      <span style="color:var(--green)">Asset Class Mix</span> — up to +8% · <span style="color:var(--green)">Geographic Spread</span> — up to +5%<br>
+      <span style="color:var(--green)">Core Foundation</span> — up to +7% · <span style="color:var(--red)">Concentration Risk</span> — up to −15%
+    </div>
+  </div>
+  <button class="btn-primary" onclick="startGame()">BEGIN RUN</button>
+  <div class="title-disclaimer">⚠ Not investment advice — returns are simulated for entertainment only</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ ROLL SCREEN -->
+<div class="screen" id="screenRoll">
+  <div class="hud" id="hud">
+    <div class="hud-item">
+      <div class="hud-label">Cash</div>
+      <div class="hud-val gold" id="hudCash">$100</div>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-item">
+      <div class="hud-label">Round</div>
+      <div class="hud-val" id="hudRound">1 / 10</div>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-item">
+      <div class="hud-label">Progress</div>
+      <div class="hud-round-pips" id="hudPips"></div>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-item">
+      <div class="hud-label">Slots</div>
+      <div class="hud-val" id="hudSlots">3</div>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-item">
+      <div class="hud-label">W / L</div>
+      <div class="hud-val" id="hudWL">0 / 0</div>
+    </div>
+  </div>
+
+  <div class="roll-title" id="rollTitle">SELECT YOUR PORTFOLIO</div>
+  <div class="roll-context" id="rollContext"></div>
+
+  <div class="cards-grid" id="cardsGrid"></div>
+
+  <div class="roll-actions">
+    <div id="rerollBadge" class="reroll-badge" onclick="doReroll()">↺ REROLL ONE CARD</div>
+    <button class="btn-primary" id="confirmRollBtn" onclick="confirmRoll()" disabled>
+      CONFIRM PORTFOLIO
+    </button>
+  </div>
+  <div class="roll-info" id="rollInfo">Pick <span id="slotsNeeded">3</span> cards · <span id="selectedCount">0</span> selected</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ BATTLE SCREEN -->
+<div class="screen" id="screenBattle">
+  <div class="hud" id="hudBattle">
+    <div class="hud-item">
+      <div class="hud-label">Cash</div>
+      <div class="hud-val gold" id="hudCashB">$100</div>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-item">
+      <div class="hud-label">Round</div>
+      <div class="hud-val" id="hudRoundB">1 / 10</div>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-item">
+      <div class="hud-label">Opponent</div>
+      <div class="hud-val" id="hudDifficulty" style="font-size:0.7rem">—</div>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-item">
+      <div class="hud-label">Simulating</div>
+      <div class="hud-val" id="hudQuarter" style="font-size:0.75rem">—</div>
+    </div>
+  </div>
+
+  <div class="battle-arena" id="battleArena">
+    <div class="arena-header">
+      <span>YOUR PORTFOLIO</span>
+      <span class="arena-vs">VS</span>
+      <span>OPPONENT</span>
+    </div>
+
+    <!-- SCOREBOARD -->
+    <div style="display:flex;gap:1rem;width:100%">
+      <div class="portfolio-panel player" style="flex:1">
+        <div class="pp-header">
+          <div class="pp-label player">▶ PLAYER</div>
+          <div class="pp-total" id="playerTotal">$100.00</div>
+        </div>
+        <div class="holdings-row" id="playerHoldings"></div>
+        <div class="health-bonus-row" id="playerBonuses"></div>
+        <div class="mult-breakdown" id="playerMultBreakdown"></div>
+      </div>
+      <div class="portfolio-panel opponent" style="flex:1">
+        <div class="pp-header">
+          <div class="pp-label opponent">◀ OPPONENT</div>
+          <div class="pp-total" id="opponentTotal">$100.00</div>
+        </div>
+        <div class="holdings-row" id="opponentHoldings"></div>
+      </div>
+    </div>
+
+    <!-- 10-YEAR CHART -->
+    <div class="portfolio-panel" style="padding:1rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
+        <div class="section-title" style="margin:0">10-YEAR SIMULATION</div>
+        <div style="display:flex;gap:1rem;font-size:0.65rem">
+          <span style="color:var(--accent)">▬ YOU</span>
+          <span style="color:var(--red)">▬ OPPONENT</span>
+        </div>
+      </div>
+      <canvas id="battleChart" style="width:100%;height:200px;display:block"></canvas>
+      <div style="display:flex;justify-content:space-between;font-size:0.55rem;color:var(--dim);font-family:'Orbitron',monospace;margin-top:0.4rem;padding:0 2px">
+        <span id="chartYearStart">2015</span>
+        <span id="chartYearMid">2020</span>
+        <span id="chartYearEnd">2025</span>
+      </div>
+      <!-- Quarter progress bar -->
+      <div style="margin-top:0.75rem;display:flex;align-items:center;gap:0.75rem">
+        <div style="font-family:'Orbitron',monospace;font-size:0.5rem;color:var(--dim);min-width:70px" id="simProgress">Q0 / 40</div>
+        <div style="flex:1;height:3px;background:#111;border-radius:2px">
+          <div id="simProgressBar" style="height:100%;width:0%;background:var(--accent);border-radius:2px;transition:width 0.15s"></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:center;gap:1rem;flex-wrap:wrap">
+      <button class="sim-btn" id="simBtn" onclick="runSimulation()">▶ SIMULATE 10 YEARS</button>
+      <button class="btn-secondary" id="nextRoundBtn" onclick="proceedAfterBattle()" style="display:none">
+        CONTINUE →
+      </button>
+    </div>
+
+    <div class="battle-result-banner" id="battleResultBanner">
+      <div class="brb-title" id="brbTitle">—</div>
+      <div class="brb-subtitle" id="brbSubtitle"></div>
+      <div class="brb-money" id="brbMoney"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ SHOP SCREEN -->
+<div class="screen" id="screenShop">
+  <div class="hud">
+    <div class="hud-item">
+      <div class="hud-label">Cash</div>
+      <div class="hud-val gold" id="hudCashS">$100</div>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-item">
+      <div class="hud-label">Next Round</div>
+      <div class="hud-val" id="hudNextRound">2 / 10</div>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-item">
+      <div class="hud-label">Slots</div>
+      <div class="hud-val" id="hudSlotsS">3</div>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-item">
+      <div class="hud-label">Roll Count</div>
+      <div class="hud-val" id="hudRollCount">10</div>
+    </div>
+  </div>
+
+  <div class="section-title">UPGRADE SHOP</div>
+  <div class="shop-grid" id="shopGrid"></div>
+  <button class="btn-primary" onclick="leaveShop()" style="margin-top:1rem">NEXT ROUND →</button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ GAME OVER SCREEN -->
+<div class="screen" id="screenGameOver">
+  <div class="go-title" id="goTitle">GAME OVER</div>
+  <div style="font-size:0.85rem;color:var(--dim)" id="goSubtitle"></div>
+  <div class="go-stats" id="goStats"></div>
+  <button class="btn-primary" onclick="startGame()">NEW RUN</button>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// STOCK DATABASE — tickers that existed 2015–present
+// ══════════════════════════════════════════════════════════════════════════════
+const TIERS = {
+  common:       { label:"Common",        color:"#9ea3b0" },
+  uncommon:     { label:"Uncommon",       color:"#4e9ef5" },
+  somewhatRare: { label:"Somewhat Rare",  color:"#22d3ee" },
+  rare:         { label:"Rare",           color:"#a855f7" },
+  veryRare:     { label:"Very Rare",      color:"#f97316" },
+  ultraRare:    { label:"Ultra Rare",     color:"#ef4444" },
+  megaRare:     { label:"Mega Rare",      color:"#ec4899" },
+  legendary:    { label:"Legendary",      color:"#06b6d4" },
+  ultraLegend:  { label:"Ultra Legendary",color:"#ffd700" },
+  unique:       { label:"Unique",         color:"#ffffff" },
+};
+
+// Quarterly return distribution per tier: [mean%, stdDev%]
+// Based on realistic historical ranges for each category
+const RETURN_DIST = {
+  common:       [ 2.5,  4.0 ],  // Broad index ETFs: steady ~10%/yr
+  uncommon:     [ 2.8,  6.5 ],  // Sector ETFs: more variance
+  somewhatRare: [ 3.5,  9.0 ],  // Factor/thematic ETFs: higher upside & risk
+  rare:         [ 3.0,  8.0 ],  // Blue chip stocks: solid but individual
+  veryRare:     [ 4.5, 12.0 ],  // Growth blue chips: meaningful variance
+  ultraRare:    [ 6.0, 18.0 ],  // High-growth individual stocks
+  megaRare:     [ 8.0, 25.0 ],  // Disruptors: high ceiling, volatile floor
+  legendary:    [10.0, 32.0 ],  // Pre-revenue / momentum: boom or bust
+  ultraLegend:  [12.0, 45.0 ],  // Deep speculative: massive swings
+  unique:       [15.0, 60.0 ],  // Pre-revenue moonshots
+};
+
+const STOCKS = {
+  common: [
+    { ticker:"VOO",   name:"S&P 500 Index",              emoji:"🦅" },
+    { ticker:"VTI",   name:"Total US Market",             emoji:"🇺🇸" },
+    { ticker:"VT",    name:"Total World Market",          emoji:"🌍" },
+    { ticker:"VXUS",  name:"International ex-US",         emoji:"🌐" },
+    { ticker:"VEA",   name:"Developed Markets ex-US",     emoji:"🇪🇺" },
+    { ticker:"VWO",   name:"Emerging Markets",            emoji:"🌴" },
+    { ticker:"BND",   name:"US Total Bond Market",        emoji:"🔗" },
+    { ticker:"BNDX",  name:"International Bonds",         emoji:"📋" },
+    { ticker:"BSV",   name:"Short-Term US Bond",          emoji:"🪙" },
+    { ticker:"BIL",   name:"T-Bills / Cash Equivalent",   emoji:"💵" },
+    { ticker:"IEF",   name:"Intermediate Treasuries",     emoji:"📜" },
+    { ticker:"TLT",   name:"Long-Term Treasuries 20yr+",  emoji:"🏛️" },
+    { ticker:"LQD",   name:"Investment-Grade Corp Bonds", emoji:"🏢" },
+    { ticker:"AOR",   name:"Balanced 60/40 Portfolio",    emoji:"⚖️" },
+  ],
+  uncommon: [
+    { ticker:"QQQ",   name:"NASDAQ-100",                  emoji:"📡" },
+    { ticker:"SCHD",  name:"US Dividend Growth",          emoji:"💰" },
+    { ticker:"VNQ",   name:"US REITs",                    emoji:"🏠" },
+    { ticker:"GLD",   name:"Gold",                        emoji:"🥇" },
+    { ticker:"TIP",   name:"TIPS Bonds",                  emoji:"📌" },
+    { ticker:"HYG",   name:"High-Yield Bonds",            emoji:"⚠️" },
+    { ticker:"VHT",   name:"Healthcare Sector",           emoji:"🏥" },
+    { ticker:"VGT",   name:"Technology Sector",           emoji:"💻" },
+    { ticker:"VPU",   name:"Utilities Sector",            emoji:"💡" },
+    { ticker:"XLE",   name:"Energy Sector",               emoji:"⛽" },
+    { ticker:"VIS",   name:"Industrials Sector",          emoji:"⚙️" },
+    { ticker:"VDC",   name:"Consumer Staples Sector",     emoji:"🧺" },
+    { ticker:"RSP",   name:"Equal-Weight S&P 500",        emoji:"⚖️" },
+    { ticker:"NOBL",  name:"Dividend Aristocrats",        emoji:"👑" },
+    { ticker:"PAVE",  name:"US Infrastructure",           emoji:"🏗️" },
+  ],
+  somewhatRare: [
+    { ticker:"SOXX",  name:"Semiconductors",              emoji:"💎" },
+    { ticker:"CIBR",  name:"Cybersecurity",               emoji:"🔐" },
+    { ticker:"CLOU",  name:"Cloud Computing",             emoji:"☁️" },
+    { ticker:"BOTZ",  name:"Robotics & AI",               emoji:"🤖" },
+    { ticker:"IWM",   name:"Small-Cap Blend",             emoji:"🧩" },
+    { ticker:"VBR",   name:"Small-Cap Value",             emoji:"🔩" },
+    { ticker:"VO",    name:"Mid-Cap Blend",               emoji:"🎯" },
+    { ticker:"MTUM",  name:"Momentum Factor",             emoji:"⚡" },
+    { ticker:"QUAL",  name:"Quality Factor",              emoji:"🏆" },
+    { ticker:"USMV",  name:"Low Volatility Factor",       emoji:"🌊" },
+    { ticker:"GDX",   name:"Gold Miners",                 emoji:"⛏️" },
+    { ticker:"VYMI",  name:"International High Dividend", emoji:"🌍" },
+    { ticker:"EFV",   name:"International Value",         emoji:"🗺️" },
+    { ticker:"VSS",   name:"International Small-Cap",     emoji:"🌏" },
+    { ticker:"BLOK",  name:"Blockchain & Digital Assets", emoji:"⛓️" },
+  ],
+  rare: [
+    { ticker:"BRK.B", name:"Berkshire Hathaway",          emoji:"🎩" },
+    { ticker:"JPM",   name:"JPMorgan Chase",              emoji:"🏦" },
+    { ticker:"V",     name:"Visa",                        emoji:"💳" },
+    { ticker:"JNJ",   name:"Johnson & Johnson",           emoji:"🩹" },
+    { ticker:"PG",    name:"Procter & Gamble",            emoji:"🧼" },
+    { ticker:"KO",    name:"Coca-Cola",                   emoji:"🥤" },
+    { ticker:"WMT",   name:"Walmart",                     emoji:"🛒" },
+    { ticker:"MCD",   name:"McDonald's",                  emoji:"🍔" },
+    { ticker:"NEE",   name:"NextEra Energy",              emoji:"🌬️" },
+    { ticker:"LMT",   name:"Lockheed Martin",             emoji:"✈️" },
+    { ticker:"CAT",   name:"Caterpillar",                 emoji:"🚜" },
+    { ticker:"XOM",   name:"ExxonMobil",                  emoji:"🛢️" },
+    { ticker:"CVX",   name:"Chevron",                     emoji:"⛽" },
+    { ticker:"UNH",   name:"UnitedHealth Group",          emoji:"🏥" },
+    { ticker:"COST",  name:"Costco",                      emoji:"📦" },
+  ],
+  veryRare: [
+    { ticker:"MSFT",  name:"Microsoft",                   emoji:"🪟" },
+    { ticker:"AAPL",  name:"Apple",                       emoji:"🍎" },
+    { ticker:"GOOGL", name:"Alphabet",                    emoji:"🔍" },
+    { ticker:"BLK",   name:"BlackRock",                   emoji:"⬛" },
+    { ticker:"GS",    name:"Goldman Sachs",               emoji:"📐" },
+    { ticker:"BAC",   name:"Bank of America",             emoji:"🏛️" },
+    { ticker:"HD",    name:"Home Depot",                  emoji:"🔨" },
+    { ticker:"PEP",   name:"PepsiCo",                     emoji:"🫙" },
+    { ticker:"MA",    name:"Mastercard",                  emoji:"🔴" },
+    { ticker:"UPS",   name:"UPS",                         emoji:"📫" },
+    { ticker:"DE",    name:"Deere & Company",             emoji:"🌿" },
+    { ticker:"RTX",   name:"RTX Corporation",             emoji:"🛡️" },
+    { ticker:"FCX",   name:"Freeport-McMoRan",            emoji:"🔩" },
+    { ticker:"NEM",   name:"Newmont — Gold Mining",       emoji:"🥇" },
+    { ticker:"ADM",   name:"Archer-Daniels-Midland",      emoji:"🌽" },
+  ],
+  ultraRare: [
+    { ticker:"NVDA",  name:"NVIDIA",                      emoji:"🟢" },
+    { ticker:"META",  name:"Meta Platforms",              emoji:"📘" },
+    { ticker:"AMZN",  name:"Amazon",                      emoji:"📦" },
+    { ticker:"TSLA",  name:"Tesla",                       emoji:"⚡" },
+    { ticker:"NFLX",  name:"Netflix",                     emoji:"🎬" },
+    { ticker:"CRM",   name:"Salesforce",                  emoji:"☁️" },
+    { ticker:"AMD",   name:"AMD",                         emoji:"🔴" },
+    { ticker:"SHOP",  name:"Shopify",                     emoji:"🛍️" },
+    { ticker:"SQ",    name:"Block (Square)",              emoji:"⬛" },
+    { ticker:"UBER",  name:"Uber",                        emoji:"🚗" },
+    { ticker:"ABNB",  name:"Airbnb",                      emoji:"🏡" },
+    { ticker:"SNOW",  name:"Snowflake",                   emoji:"❄️" },
+    { ticker:"CRWD",  name:"CrowdStrike",                 emoji:"🦅" },
+    { ticker:"DDOG",  name:"Datadog",                     emoji:"🐕" },
+    { ticker:"NET",   name:"Cloudflare",                  emoji:"🌐" },
+  ],
+  megaRare: [
+    { ticker:"PLTR",  name:"Palantir",                    emoji:"👁️" },
+    { ticker:"SOFI",  name:"SoFi Technologies",           emoji:"🏦" },
+    { ticker:"HOOD",  name:"Robinhood",                   emoji:"🏹" },
+    { ticker:"RKLB",  name:"Rocket Lab",                  emoji:"🚀" },
+    { ticker:"ASTS",  name:"AST SpaceMobile",             emoji:"🛸" },
+    { ticker:"ACHR",  name:"Archer Aviation",             emoji:"🚁" },
+    { ticker:"JOBY",  name:"Joby Aviation",               emoji:"✈️" },
+    { ticker:"KTOS",  name:"Kratos Defense",              emoji:"🛡️" },
+    { ticker:"RDDT",  name:"Reddit",                      emoji:"🤖" },
+    { ticker:"CELH",  name:"Celsius Holdings",            emoji:"🥤" },
+    { ticker:"SMCI",  name:"Super Micro Computer",        emoji:"🖥️" },
+    { ticker:"MSTR",  name:"MicroStrategy",               emoji:"₿" },
+  ],
+  legendary: [
+    { ticker:"IONQ",  name:"IonQ — Quantum Computing",    emoji:"⚛️" },
+    { ticker:"RGTI",  name:"Rigetti Computing",           emoji:"🔬" },
+    { ticker:"QBTS",  name:"D-Wave Quantum",              emoji:"🌀" },
+    { ticker:"CRSP",  name:"CRISPR Therapeutics",         emoji:"🧬" },
+    { ticker:"EDIT",  name:"Editas Medicine",             emoji:"✂️" },
+    { ticker:"BEAM",  name:"Beam Therapeutics",           emoji:"💡" },
+    { ticker:"RXRX",  name:"Recursion Pharmaceuticals",   emoji:"🔭" },
+    { ticker:"LUNR",  name:"Intuitive Machines",          emoji:"🌙" },
+    { ticker:"DNA",   name:"Ginkgo Bioworks",             emoji:"🧫" },
+    { ticker:"LAZR",  name:"Luminar Technologies",        emoji:"🔦" },
+  ],
+  ultraLegend: [
+    { ticker:"ARKK",  name:"ARK Innovation ETF",          emoji:"🚀" },
+    { ticker:"ARKG",  name:"ARK Genomic Revolution",      emoji:"🧬" },
+    { ticker:"NTLA",  name:"Intellia Therapeutics",       emoji:"🔬" },
+    { ticker:"MVST",  name:"Microvast Holdings",          emoji:"⚡" },
+    { ticker:"TMDX",  name:"TransMedics Group",           emoji:"❤️" },
+    { ticker:"EXAS",  name:"Exact Sciences",              emoji:"🧪" },
+    { ticker:"SE",    name:"Sea Limited",                 emoji:"🌊" },
+    { ticker:"MELI",  name:"MercadoLibre",                emoji:"🦁" },
+  ],
+  unique: [
+    { ticker:"BABA",  name:"Alibaba Group",               emoji:"🐻" },
+    { ticker:"PDD",   name:"PDD Holdings (Temu)",         emoji:"🛒" },
+    { ticker:"OUST",  name:"Ouster (LiDAR)",              emoji:"👁️" },
+    { ticker:"NKLA",  name:"Nikola Corporation",          emoji:"⚡" },
+    { ticker:"WKHS",  name:"Workhorse Group",             emoji:"🐴" },
+    { ticker:"EVGO",  name:"EVgo",                        emoji:"🔌" },
+  ],
+};
+
+const ALL_STOCKS_FLAT = Object.entries(STOCKS).flatMap(([tier, stocks]) =>
+  stocks.map(s => ({ ...s, tier }))
+);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GAME STATE
+// ══════════════════════════════════════════════════════════════════════════════
+let G = {};
+
+function startGame() {
+  G = {
+    cash: 100,
+    round: 1,
+    maxRounds: 10,
+    wins: 0,
+    losses: 0,
+    slots: 3,
+    rollCount: 10,
+    rerollUsed: false,
+    healthBonusAmplifier: 1.0,
+    lockedCards: [],       // cards carried over
+    upgrades: {},          // track purchased upgrades
+    roundResults: [],      // 'win'|'loss'|'draw' per round
+    currentRolls: [],
+    selectedCards: [],
+    playerPortfolio: [],
+    opponentPortfolio: [],
+  };
+  showScreen('screenRoll');
+  setupRollScreen();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCREEN MANAGEMENT
+// ══════════════════════════════════════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+  // Redraw chart if switching to battle screen
+  if (id === 'screenBattle') requestAnimationFrame(drawChart);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DIFFICULTY LADDER
+// ══════════════════════════════════════════════════════════════════════════════
+const DIFFICULTY = [
+  { round:1,  label:"Penny Pit",        tiers:["unique","ultraLegend"],            color:"#ff00ff",  desc:"Wild moonshots and pre-revenue bets" },
+  { round:2,  label:"Speculative Zone", tiers:["ultraLegend","legendary"],         color:"#ff00ff",  desc:"Deep speculative names" },
+  { round:3,  label:"Moonshot Alley",   tiers:["legendary","ultraLegend"],         color:"#ffffff",  desc:"Pre-revenue and quantum plays" },
+  { round:4,  label:"Disruptor Arena",  tiers:["megaRare","legendary"],            color:"#ffd700",  desc:"High-growth disruptors" },
+  { round:5,  label:"Growth Gauntlet",  tiers:["ultraRare","megaRare"],            color:"#ffd700",  desc:"Big tech and growth stocks" },
+  { round:6,  label:"Blue Chip Bowl",   tiers:["veryRare","ultraRare"],            color:"#f97316",  desc:"Established growth companies" },
+  { round:7,  label:"Steady State",     tiers:["rare","veryRare"],                 color:"#f97316",  desc:"Blue chips — consistent performers" },
+  { round:8,  label:"Dividend Duel",    tiers:["somewhatRare","rare"],             color:"#a855f7",  desc:"Factor ETFs and steady dividend plays" },
+  { round:9,  label:"Sector Wars",      tiers:["uncommon","somewhatRare"],         color:"#4e9ef5",  desc:"Sector ETFs — efficient markets" },
+  { round:10, label:"ETF Final Boss",   tiers:["common","uncommon"],               color:"#9ea3b0",  desc:"Broad index funds — the hardest to beat" },
+];
+
+function getDifficulty() { return DIFFICULTY[Math.min(G.round - 1, 9)]; }
+
+function buildOpponentPortfolio() {
+  const diff = getDifficulty();
+  const pool = diff.tiers.flatMap(t => STOCKS[t] ? STOCKS[t].map(s => ({ ...s, tier: t })) : []);
+  const count = 3 + Math.floor(Math.random() * 2); // 3-4 holdings
+  const picks = [];
+  const used = new Set();
+  while (picks.length < count && picks.length < pool.length) {
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    if (!used.has(pick.ticker)) { picks.push(pick); used.add(pick.ticker); }
+  }
+  return picks;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ROLL SCREEN
+// ══════════════════════════════════════════════════════════════════════════════
+function rollStockWeighted() {
+  // Weight toward lower tiers based on current round — early rounds get spicier pulls available
+  const round = G.round;
+  const tierWeights = {
+    common:       20 + round * 2,
+    uncommon:     18,
+    somewhatRare: 15,
+    rare:         12,
+    veryRare:     10,
+    ultraRare:    8,
+    megaRare:     6,
+    legendary:    4,
+    ultraLegend:  3,
+    unique:       2,
+  };
+  const entries = Object.entries(tierWeights);
+  const total = entries.reduce((s,[,w]) => s + w, 0);
+  let r = Math.random() * total;
+  let chosenTier = 'common';
+  for (const [tier, w] of entries) { r -= w; if (r <= 0) { chosenTier = tier; break; } }
+  const pool = STOCKS[chosenTier];
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  return { ...pick, tier: chosenTier };
+}
+
+function setupRollScreen() {
+  updateHUD();
+  const diff = getDifficulty();
+
+  document.getElementById('rollTitle').textContent = `ROUND ${G.round} — SELECT YOUR PORTFOLIO`;
+  document.getElementById('rollContext').innerHTML =
+    `Opponent: <span style="color:${diff.color};font-family:'Orbitron',monospace">${diff.label}</span> — ${diff.desc}<br>` +
+    `Roll cost: <span style="color:var(--gold)">$10</span> · Pick <strong>${G.slots}</strong> cards to build your portfolio`;
+
+  // Check can afford
+  if (G.cash < 10) { triggerGameOver("BANKRUPT", "You couldn't afford to roll."); return; }
+
+  G.cash -= 10;
+  G.rerollUsed = false;
+  updateHUD();
+
+  // Generate rolls (excluding locked card tickers)
+  const lockedTickers = new Set(G.lockedCards.map(c => c.ticker));
+  G.currentRolls = [];
+  const used = new Set(lockedTickers);
+  while (G.currentRolls.length < G.rollCount) {
+    const s = rollStockWeighted();
+    if (!used.has(s.ticker)) { G.currentRolls.push(s); used.add(s.ticker); }
+  }
+
+  G.selectedCards = [...G.lockedCards];
+  renderRollCards();
+  updateRerollBadge();
+  document.getElementById('slotsNeeded').textContent = G.slots;
+  document.getElementById('selectedCount').textContent = G.selectedCards.length;
+  document.getElementById('confirmRollBtn').disabled = G.selectedCards.length < G.slots;
+}
+
+function renderRollCards() {
+  const grid = document.getElementById('cardsGrid');
+  grid.innerHTML = '';
+
+  // Locked cards first
+  G.lockedCards.forEach((card, i) => {
+    const el = buildCardEl(card, true, false);
+    el.classList.add('locked-card', 'selected');
+    el.querySelector('.rc-selected-num').textContent = i + 1;
+    grid.appendChild(el);
+  });
+
+  // Rolled cards
+  G.currentRolls.forEach(card => {
+    const isSelected = G.selectedCards.some(s => s.ticker === card.ticker);
+    const selIdx = G.selectedCards.findIndex(s => s.ticker === card.ticker);
+    const el = buildCardEl(card, isSelected, false);
+    if (isSelected) el.querySelector('.rc-selected-num').textContent = selIdx + 1;
+    el.addEventListener('click', () => toggleCardSelect(card));
+    grid.appendChild(el);
+  });
+}
+
+function buildCardEl(card, selected, disabled) {
+  const tier = TIERS[card.tier];
+  const el = document.createElement('div');
+  el.className = 'roll-card' + (selected ? ' selected' : '') + (disabled ? ' disabled' : '');
+  el.style.borderColor = selected ? 'var(--green)' : tier.color + '55';
+  el.innerHTML = `
+    <div class="rc-emoji">${card.emoji}</div>
+    <div class="rc-ticker" style="color:${tier.color}">${card.ticker}</div>
+    <div class="rc-name">${card.name}</div>
+    <div class="rc-tier" style="color:${tier.color}">${tier.label}</div>
+    <div class="rc-selected-num"></div>
+  `;
+  return el;
+}
+
+function toggleCardSelect(card) {
+  const idx = G.selectedCards.findIndex(s => s.ticker === card.ticker);
+  if (idx >= 0) {
+    G.selectedCards.splice(idx, 1);
+  } else {
+    if (G.selectedCards.length >= G.slots) return;
+    G.selectedCards.push(card);
+  }
+  renderRollCards();
+  document.getElementById('selectedCount').textContent = G.selectedCards.length;
+  document.getElementById('confirmRollBtn').disabled = G.selectedCards.length < G.slots;
+}
+
+function doReroll() {
+  if (G.rerollUsed || !G.upgrades.reroll) return;
+  // Remove a random unselected, non-locked card and replace it
+  const lockedTickers = new Set(G.lockedCards.map(c => c.ticker));
+  const selectedTickers = new Set(G.selectedCards.map(c => c.ticker));
+  const replaceable = G.currentRolls.filter(c => !lockedTickers.has(c.ticker) && !selectedTickers.has(c.ticker));
+  if (replaceable.length === 0) return;
+  const victim = replaceable[Math.floor(Math.random() * replaceable.length)];
+  const usedAll = new Set([...G.currentRolls.map(c=>c.ticker), ...lockedTickers]);
+  let newCard;
+  let attempts = 0;
+  do { newCard = rollStockWeighted(); attempts++; } while (usedAll.has(newCard.ticker) && attempts < 50);
+  const pos = G.currentRolls.findIndex(c => c.ticker === victim.ticker);
+  G.currentRolls[pos] = newCard;
+  G.rerollUsed = true;
+  updateRerollBadge();
+  renderRollCards();
+}
+
+function updateRerollBadge() {
+  const badge = document.getElementById('rerollBadge');
+  if (!G.upgrades.reroll) { badge.style.display = 'none'; return; }
+  badge.style.display = '';
+  badge.className = 'reroll-badge' + (G.rerollUsed ? ' used' : '');
+  badge.textContent = G.rerollUsed ? '↺ REROLL USED' : '↺ REROLL ONE CARD';
+}
+
+function confirmRoll() {
+  if (G.selectedCards.length < G.slots) return;
+  G.playerPortfolio = [...G.selectedCards];
+  G.opponentPortfolio = buildOpponentPortfolio();
+  setupBattleScreen();
+  showScreen('screenBattle');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// HEALTH SCORE ENGINE (mirrors stock-case.html logic)
+// ══════════════════════════════════════════════════════════════════════════════
+const ASSET_CLASS_MAP = {
+  VOO:"US_EQ",VTI:"US_EQ",VT:"WORLD_EQ",VXUS:"INTL_EQ",VEA:"INTL_EQ",VWO:"EM_EQ",
+  BND:"US_BOND",BNDX:"INTL_BOND",BSV:"US_BOND",BIL:"CASH",IEF:"US_BOND",TLT:"US_BOND",
+  LQD:"US_BOND",HYG:"US_BOND",AOR:"US_EQ",QQQ:"US_EQ",SCHD:"US_EQ",VNQ:"REIT",
+  GLD:"COMMODITY",TIP:"US_BOND",VHT:"US_EQ",VGT:"US_EQ",VPU:"US_EQ",XLE:"US_EQ",
+  VIS:"US_EQ",VDC:"US_EQ",RSP:"US_EQ",NOBL:"US_EQ",PAVE:"US_EQ",
+  SOXX:"US_EQ",CIBR:"US_EQ",CLOU:"US_EQ",BOTZ:"US_EQ",IWM:"US_EQ",VBR:"US_EQ",
+  VO:"US_EQ",MTUM:"US_EQ",QUAL:"US_EQ",USMV:"US_EQ",GDX:"COMMODITY",
+  VYMI:"INTL_EQ",EFV:"INTL_EQ",VSS:"INTL_EQ",BLOK:"ALTS",
+};
+function getAC(ticker) { return ASSET_CLASS_MAP[ticker] || "US_EQ"; }
+
+function computeHealthBonuses(portfolio) {
+  const tickers = portfolio.map(s => s.ticker);
+  const classes = portfolio.map(s => getAC(s.ticker));
+  const total = portfolio.length;
+
+  // 1. Asset Class Mix → up to +8%
+  const hasEquity = classes.some(c => ["US_EQ","INTL_EQ","EM_EQ","WORLD_EQ"].includes(c));
+  const hasBond   = classes.some(c => ["US_BOND","INTL_BOND","CASH"].includes(c));
+  const hasAlt    = classes.some(c => ["REIT","COMMODITY","ALTS"].includes(c));
+  const hasIntl   = classes.some(c => ["INTL_EQ","EM_EQ","WORLD_EQ","INTL_BOND"].includes(c));
+  let assetMix = 0;
+  if (hasEquity) assetMix += 3;
+  if (hasBond)   assetMix += 3;
+  if (hasAlt)    assetMix += 1;
+  if (hasIntl)   assetMix += 1;
+  // Scale to 0-8%
+  const assetMixPct = assetMix; // already in percentage points
+
+  // 2. Geographic Spread → up to +5%
+  const hasUS  = classes.some(c => c === "US_EQ");
+  const hasDev = tickers.some(t => ["VEA","EFA","SCHF","VXUS","VEU","VT","ACWI"].includes(t));
+  const hasEM  = tickers.some(t => ["VWO","EEM","IEMG","SCHE","VYMI","VSS"].includes(t));
+  let geoPct = 0;
+  if (hasUS)  geoPct += 2;
+  if (hasDev) geoPct += 2;
+  if (hasEM)  geoPct += 1;
+
+  // 3. Concentration Risk → penalty up to -15%
+  const specTiers = ["unique","ultraLegend","legendary","megaRare"];
+  const specCount = portfolio.filter(s => specTiers.includes(s.tier)).length;
+  const specRatio = specCount / total;
+  const concPenalty = -Math.round(15 * specRatio);
+
+  // 4. Core Foundation → up to +7%
+  const coreSet = ["VOO","VTI","VT","VXUS","BND","BNDX","VEA","VWO","IEF","TLT","LQD","AOR","BSV","BIL"];
+  const coreCount = tickers.filter(t => coreSet.includes(t)).length;
+  const corePct = Math.min(7, coreCount * 3);
+
+  return {
+    assetMix:    assetMixPct,
+    geo:         geoPct,
+    conc:        concPenalty,
+    core:        corePct,
+    total: (assetMixPct + geoPct + concPenalty + corePct) * G.healthBonusAmplifier,
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BATTLE SCREEN
+// ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// BATTLE SCREEN
+// ══════════════════════════════════════════════════════════════════════════════
+function renderPortfolioPanel(elId, portfolio) {
+  const el = document.getElementById(elId);
+  el.innerHTML = '';
+  portfolio.forEach(stock => {
+    const tier = TIERS[stock.tier];
+    const row  = document.createElement('div');
+    row.className = 'holding-bar-row';
+    row.innerHTML = `
+      <div class="hb-emoji">${stock.emoji}</div>
+      <div class="hb-ticker" style="color:${tier.color}">${stock.ticker}${stock._locked ? '<span class="hb-locked">🔒</span>' : ''}</div>
+      <div style="font-size:0.6rem;color:var(--dim);flex:1">${stock.name}</div>
+      <div style="font-family:'Orbitron',monospace;font-size:0.5rem;color:${tier.color}">${tier.label}</div>
+    `;
+    el.appendChild(row);
+  });
+}
+
+function renderHealthBonuses(bonuses) {
+  const el = document.getElementById('playerBonuses');
+  el.innerHTML = '';
+  const items = [
+    { label:'Asset Class Mix',   val: bonuses.assetMix },
+    { label:'Geographic Spread', val: bonuses.geo      },
+    { label:'Core Foundation',   val: bonuses.core     },
+    { label:'Conc. Risk',        val: bonuses.conc     },
+  ];
+  items.forEach(item => {
+    if (item.val === 0) return;
+    const pos = item.val > 0;
+    const chip = document.createElement('div');
+    chip.className = 'hb-bonus-chip';
+    chip.style.borderColor = pos ? 'var(--green)' : 'var(--red)';
+    chip.style.color       = pos ? 'var(--green)' : 'var(--red)';
+    chip.textContent = `${item.label}: ${pos ? '+' : ''}${item.val.toFixed(1)}%`;
+    el.appendChild(chip);
+  });
+
+  const mb = document.getElementById('playerMultBreakdown');
+  mb.innerHTML = '';
+  if (G.healthBonusAmplifier > 1) {
+    const row = document.createElement('div');
+    row.className = 'mult-row';
+    row.innerHTML = `<span>Health Bonus Amplifier</span><span class="mult-val pos">×${G.healthBonusAmplifier.toFixed(1)}</span>`;
+    mb.appendChild(row);
+  }
+  const sign = bonuses.total >= 0 ? '+' : '';
+  const totalRow = document.createElement('div');
+  totalRow.className = 'mult-row';
+  totalRow.style.fontWeight = '700';
+  totalRow.innerHTML = `<span>10yr Bonus Applied Each Quarter</span><span class="mult-val ${bonuses.total >= 0 ? 'pos' : 'neg'}">${sign}${bonuses.total.toFixed(1)}% total</span>`;
+  mb.appendChild(totalRow);
+}
+
+function setupBattleScreen() {
+  const diff = getDifficulty();
+  updateHUDBattle();
+  document.getElementById('hudDifficulty').textContent = diff.label;
+  document.getElementById('hudDifficulty').style.color = diff.color;
+
+  const startYear = 2015 + Math.floor(Math.random() * 6); // 2015-2020 so 10yr fits
+  G._simStartYear = startYear;
+  document.getElementById('hudQuarter').textContent = `${startYear}–${startYear + 10}`;
+  document.getElementById('chartYearStart').textContent = startYear;
+  document.getElementById('chartYearMid').textContent = startYear + 5;
+  document.getElementById('chartYearEnd').textContent = startYear + 10;
+
+  renderPortfolioPanel('playerHoldings',   G.playerPortfolio,   false);
+  renderPortfolioPanel('opponentHoldings', G.opponentPortfolio, false);
+
+  document.getElementById('playerTotal').textContent   = '$100.00';
+  document.getElementById('playerTotal').style.color   = '';
+  document.getElementById('opponentTotal').textContent = '$100.00';
+  document.getElementById('opponentTotal').style.color = '';
+
+  document.getElementById('battleResultBanner').classList.remove('visible');
+  document.getElementById('simBtn').style.display   = '';
+  document.getElementById('simBtn').disabled        = false;
+  document.getElementById('nextRoundBtn').style.display = 'none';
+  document.getElementById('simProgress').textContent = 'Q0 / 40';
+  document.getElementById('simProgressBar').style.width = '0%';
+
+  // Clear chart
+  initChart();
+
+  // Show health bonuses preview
+  const bonuses = computeHealthBonuses(G.playerPortfolio);
+  renderHealthBonuses(bonuses);
+}
+
+// ── CHART ENGINE ──
+let chartData = { player: [], opponent: [] };
+
+function initChart() {
+  chartData = { player: [100], opponent: [100] };
+  drawChart();
+}
+
+function drawChart() {
+  const canvas = document.getElementById('battleChart');
+  const dpr    = window.devicePixelRatio || 1;
+  const W      = canvas.clientWidth  || 600;
+  const H      = canvas.clientHeight || 200;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Background grid
+  ctx.strokeStyle = '#1a1f2e';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = H * 0.05 + (H * 0.9) * (i / 4);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  for (let i = 0; i <= 8; i++) {
+    const x = W * (i / 8);
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+
+  if (chartData.player.length < 2) return;
+
+  const allVals = [...chartData.player, ...chartData.opponent];
+  const minV = Math.min(...allVals) * 0.95;
+  const maxV = Math.max(...allVals) * 1.05;
+  const totalPts = 41; // 0..40
+
+  function toX(i) { return (i / (totalPts - 1)) * W; }
+  function toY(v) { return H * 0.05 + H * 0.9 * (1 - (v - minV) / (maxV - minV)); }
+
+  function drawLine(data, color) {
+    if (data.length < 2) return;
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 4;
+    data.forEach((v, i) => {
+      i === 0 ? ctx.moveTo(toX(i), toY(v)) : ctx.lineTo(toX(i), toY(v));
+    });
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  // Subtle fill under player line
+  if (chartData.player.length >= 2) {
+    ctx.beginPath();
+    chartData.player.forEach((v, i) => {
+      i === 0 ? ctx.moveTo(toX(i), toY(v)) : ctx.lineTo(toX(i), toY(v));
+    });
+    ctx.lineTo(toX(chartData.player.length - 1), H);
+    ctx.lineTo(0, H); ctx.closePath();
+    ctx.fillStyle = 'rgba(78,158,245,0.06)';
+    ctx.fill();
+  }
+
+  drawLine(chartData.opponent, '#ef4444');
+  drawLine(chartData.player,   '#4e9ef5');
+
+  // $100 baseline
+  const baseY = toY(100);
+  ctx.beginPath(); ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = '#2a2f3a'; ctx.lineWidth = 1;
+  ctx.moveTo(0, baseY); ctx.lineTo(W, baseY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Y-axis labels
+  ctx.fillStyle = '#3a3f50';
+  ctx.font = `${10 * dpr / dpr}px monospace`;
+  ctx.textAlign = 'left';
+  [minV, (minV + maxV) / 2, maxV].forEach(v => {
+    ctx.fillText('$' + v.toFixed(0), 4, toY(v) - 2);
+  });
+}
+
+function runSimulation() {
+  document.getElementById('simBtn').disabled = true;
+  const QUARTERS = 40;
+
+  // Pre-generate all returns for all 40 quarters
+  function genQuarterReturn(tier) {
+    const [mean, std] = RETURN_DIST[tier] || [2, 5];
+    const u1 = Math.random(), u2 = Math.random();
+    const z  = Math.sqrt(-2 * Math.log(Math.max(u1, 1e-10))) * Math.cos(2 * Math.PI * u2);
+    return (mean + z * std) / 100; // as decimal
+  }
+
+  const bonuses = computeHealthBonuses(G.playerPortfolio);
+  const quarterlyBonus = bonuses.total / 100 / 4; // spread health bonus across 40 quarters
+
+  // Generate all 40 quarters up front
+  const playerReturns   = Array.from({ length: QUARTERS }, () =>
+    G.playerPortfolio.reduce((s, stock) => s + genQuarterReturn(stock.tier), 0) / G.playerPortfolio.length + quarterlyBonus
+  );
+  const opponentReturns = Array.from({ length: QUARTERS }, () =>
+    G.opponentPortfolio.reduce((s, stock) => s + genQuarterReturn(stock.tier), 0) / G.opponentPortfolio.length
+  );
+
+  // Compound into value series
+  let playerVal = 100, oppVal = 100;
+  const playerSeries   = [100];
+  const opponentSeries = [100];
+  for (let q = 0; q < QUARTERS; q++) {
+    playerVal *= (1 + playerReturns[q]);
+    oppVal    *= (1 + opponentReturns[q]);
+    playerSeries.push(playerVal);
+    opponentSeries.push(oppVal);
+  }
+
+  // Animate quarter by quarter
+  let q = 0;
+  const startYear = G._simStartYear || 2015;
+
+  function animateNext() {
+    if (q > QUARTERS) return;
+
+    chartData.player   = playerSeries.slice(0, q + 1);
+    chartData.opponent = opponentSeries.slice(0, q + 1);
+    drawChart();
+
+    // Update live totals
+    const pv = playerSeries[q];
+    const ov = opponentSeries[q];
+    const playerEl   = document.getElementById('playerTotal');
+    const opponentEl = document.getElementById('opponentTotal');
+    playerEl.textContent   = '$' + pv.toFixed(2);
+    playerEl.style.color   = pv >= 100 ? 'var(--green)' : 'var(--red)';
+    opponentEl.textContent = '$' + ov.toFixed(2);
+    opponentEl.style.color = ov >= 100 ? 'var(--green)' : 'var(--red)';
+
+    // Progress bar & label
+    const yr  = startYear + Math.floor(q / 4);
+    const qtr = (q % 4) + 1;
+    document.getElementById('hudQuarter').textContent = `Q${qtr} ${yr}`;
+    document.getElementById('simProgress').textContent = `Q${q} / ${QUARTERS}`;
+    document.getElementById('simProgressBar').style.width = (q / QUARTERS * 100) + '%';
+
+    q++;
+    if (q <= QUARTERS) {
+      // Speed: fast early, slightly slower near end for drama
+      const delay = q < 30 ? 40 : q < 38 ? 80 : 160;
+      setTimeout(animateNext, delay);
+    } else {
+      // Simulation complete
+      setTimeout(() => showBattleResult(
+        playerSeries[QUARTERS],
+        opponentSeries[QUARTERS]
+      ), 400);
+    }
+  }
+
+  animateNext();
+}
+
+function showBattleResult(playerFinal, opponentFinal) {
+  const banner = document.getElementById('battleResultBanner');
+  const title  = document.getElementById('brbTitle');
+  const sub    = document.getElementById('brbSubtitle');
+  const money  = document.getElementById('brbMoney');
+
+  const diff   = ((playerFinal - opponentFinal) / opponentFinal * 100).toFixed(1);
+  const isDraw = Math.abs(playerFinal - opponentFinal) < 1.5;
+  const isWin  = playerFinal > opponentFinal;
+
+  let reward, resultStr;
+  if (isDraw) {
+    title.textContent = 'DRAW';
+    title.style.color = 'var(--gold)';
+    banner.style.borderColor = 'var(--gold)';
+    sub.textContent = `Final values within $1.50 of each other`;
+    reward = 25; resultStr = 'draw';
+  } else if (isWin) {
+    title.textContent = 'VICTORY';
+    title.style.color = 'var(--green)';
+    banner.style.borderColor = 'var(--green)';
+    sub.textContent = `Your $100 grew to $${playerFinal.toFixed(2)} vs opponent's $${opponentFinal.toFixed(2)} (+${diff}% edge)`;
+    reward = 40; resultStr = 'win';
+    G.wins++;
+  } else {
+    title.textContent = 'DEFEAT';
+    title.style.color = 'var(--red)';
+    banner.style.borderColor = 'var(--red)';
+    sub.textContent = `Your $100 grew to $${playerFinal.toFixed(2)} vs opponent's $${opponentFinal.toFixed(2)} (${diff}% behind)`;
+    reward = 15; resultStr = 'loss';
+    G.losses++;
+  }
+
+  G.cash += reward;
+  G.roundResults.push(resultStr);
+  money.textContent = `+$${reward} earned → Cash: $${G.cash}`;
+  banner.classList.add('visible');
+  document.getElementById('simBtn').style.display    = 'none';
+  document.getElementById('nextRoundBtn').style.display = '';
+  updateHUDBattle();
+  updatePips();
+}
+
+function proceedAfterBattle() {
+  if (G.round >= G.maxRounds) {
+    triggerGameOver(G.wins >= 6 ? 'RUN COMPLETE' : 'RUN ENDED', null);
+    return;
+  }
+  G.round++;
+  // Show shop between rounds
+  setupShopScreen();
+  showScreen('screenShop');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SHOP SCREEN
+// ══════════════════════════════════════════════════════════════════════════════
+const SHOP_ITEMS = [
+  { id:'slot4',    icon:'📊', name:'4th Portfolio Slot',      desc:'Hold one more stock per round.',                           price:50,  max:1, requires: null },
+  { id:'slot5',    icon:'📈', name:'5th Portfolio Slot',      desc:'Expand your portfolio further.',                           price:80,  max:1, requires:'slot4' },
+  { id:'slot6',    icon:'📉', name:'6th Portfolio Slot',      desc:'Maximum diversification.',                                 price:120, max:1, requires:'slot5' },
+  { id:'rolls15',  icon:'🎲', name:'+5 Roll Cards',           desc:'See 15 cards instead of 10 each round.',                  price:40,  max:1, requires: null },
+  { id:'rolls20',  icon:'🎰', name:'+5 More Roll Cards',      desc:'See 20 cards per round.',                                  price:70,  max:1, requires:'rolls15' },
+  { id:'reroll',   icon:'↺',  name:'Reroll Token',            desc:'Swap one card per round (use once).',                      price:30,  max:1, requires: null },
+  { id:'lock',     icon:'🔒', name:'Card Lock',               desc:'Lock one card to carry over to next round.',               price:35,  max:1, requires: null },
+  { id:'amplify',  icon:'⚡', name:'Health Bonus Amplifier',  desc:'Your portfolio health bonuses are 50% stronger.',          price:60,  max:1, requires: null },
+  { id:'amplify2', icon:'💥', name:'Health Bonus Amplifier II',desc:'Health bonuses are 100% stronger total.',                 price:90,  max:1, requires:'amplify' },
+];
+
+function setupShopScreen() {
+  updateHUDShop();
+  const grid = document.getElementById('shopGrid');
+  grid.innerHTML = '';
+
+  SHOP_ITEMS.forEach(item => {
+    const purchased = !!G.upgrades[item.id];
+    const reqMet = !item.requires || !!G.upgrades[item.requires];
+    const canAfford = G.cash >= item.price;
+    const available = !purchased && reqMet;
+
+    const el = document.createElement('div');
+    el.className = 'shop-item' + (purchased ? ' purchased' : (!canAfford || !available ? ' cant-afford' : ''));
+    el.innerHTML = `
+      <div class="si-icon">${item.icon}</div>
+      <div class="si-name">${item.name}</div>
+      <div class="si-desc">${item.desc}${item.requires && !G.upgrades[item.requires] ? `<br><span style="color:var(--red);font-size:0.6rem">Requires: ${SHOP_ITEMS.find(i=>i.id===item.requires)?.name}</span>` : ''}</div>
+      <div class="si-price">${purchased ? '✓ OWNED' : '$' + item.price}</div>
+      <button class="si-buy" ${purchased || !available || !canAfford ? 'disabled' : ''} onclick="buyUpgrade('${item.id}')">
+        ${purchased ? 'PURCHASED' : 'BUY'}
+      </button>
+    `;
+    grid.appendChild(el);
+  });
+
+  // Lock card UI if upgrade purchased
+  if (G.upgrades.lock) {
+    const lockEl = document.createElement('div');
+    lockEl.className = 'shop-item';
+    lockEl.style.borderColor = 'var(--gold)';
+    lockEl.innerHTML = `
+      <div class="si-icon">🔒</div>
+      <div class="si-name">LOCK A CARD</div>
+      <div class="si-desc">Choose one card from your last portfolio to carry into next round.</div>
+      <div class="si-price" style="color:var(--green)">FREE</div>
+      <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.5rem">
+        ${G.playerPortfolio.map(s => {
+          const isLocked = G.lockedCards.some(c => c.ticker === s.ticker);
+          const tier = TIERS[s.tier];
+          return `<button onclick="toggleLock('${s.ticker}')" style="font-family:'Orbitron',monospace;font-size:0.55rem;padding:0.3rem 0.6rem;border:1px solid ${isLocked ? 'var(--gold)' : tier.color + '66'};background:${isLocked ? 'rgba(255,215,0,0.1)' : 'transparent'};color:${isLocked ? 'var(--gold)' : tier.color};cursor:pointer">
+            ${s.emoji} ${s.ticker}${isLocked ? ' 🔒' : ''}
+          </button>`;
+        }).join('')}
+      </div>
+    `;
+    grid.appendChild(lockEl);
+  }
+}
+
+function buyUpgrade(id) {
+  const item = SHOP_ITEMS.find(i => i.id === id);
+  if (!item || G.upgrades[id] || G.cash < item.price) return;
+  G.cash -= item.price;
+  G.upgrades[id] = true;
+
+  // Apply effects immediately
+  if (id === 'slot4') G.slots = 4;
+  if (id === 'slot5') G.slots = 5;
+  if (id === 'slot6') G.slots = 6;
+  if (id === 'rolls15') G.rollCount = 15;
+  if (id === 'rolls20') G.rollCount = 20;
+  if (id === 'amplify')  G.healthBonusAmplifier = 1.5;
+  if (id === 'amplify2') G.healthBonusAmplifier = 2.0;
+
+  updateHUDShop();
+  setupShopScreen();
+}
+
+function toggleLock(ticker) {
+  const idx = G.lockedCards.findIndex(c => c.ticker === ticker);
+  if (idx >= 0) {
+    G.lockedCards.splice(idx, 1);
+  } else {
+    if (G.lockedCards.length >= 1) G.lockedCards = []; // only one lock allowed
+    const card = G.playerPortfolio.find(s => s.ticker === ticker);
+    if (card) G.lockedCards = [{ ...card, _locked: true }];
+  }
+  setupShopScreen();
+}
+
+function leaveShop() {
+  showScreen('screenRoll');
+  setupRollScreen();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GAME OVER
+// ══════════════════════════════════════════════════════════════════════════════
+function triggerGameOver(title, subtitle) {
+  document.getElementById('goTitle').textContent = title;
+  document.getElementById('goTitle').style.color = G.wins >= 6 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('goSubtitle').textContent = subtitle || (G.wins >= 6 ? 'Portfolio Commander' : 'The market endures.');
+  const stats = document.getElementById('goStats');
+  stats.innerHTML = `
+    <div class="go-stat"><span>Rounds Played</span><span>${G.round <= G.maxRounds ? G.round : G.maxRounds}</span></div>
+    <div class="go-stat"><span>Wins</span><span style="color:var(--green)">${G.wins}</span></div>
+    <div class="go-stat"><span>Losses</span><span style="color:var(--red)">${G.losses}</span></div>
+    <div class="go-stat"><span>Final Cash</span><span>$${G.cash}</span></div>
+    <div class="go-stat"><span>Win Rate</span><span>${G.roundResults.length > 0 ? Math.round((G.wins/G.roundResults.length)*100) : 0}%</span></div>
+    <div class="go-stat"><span>Upgrades Purchased</span><span>${Object.keys(G.upgrades).length}</span></div>
+  `;
+  showScreen('screenGameOver');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// HUD UPDATES
+// ══════════════════════════════════════════════════════════════════════════════
+function updateHUD() {
+  document.getElementById('hudCash').textContent  = '$' + G.cash;
+  document.getElementById('hudRound').textContent = G.round + ' / ' + G.maxRounds;
+  document.getElementById('hudSlots').textContent = G.slots;
+  document.getElementById('hudWL').textContent    = G.wins + ' / ' + G.losses;
+  updatePips();
+}
+function updateHUDBattle() {
+  document.getElementById('hudCashB').textContent  = '$' + G.cash;
+  document.getElementById('hudRoundB').textContent = G.round + ' / ' + G.maxRounds;
+  updatePips();
+}
+function updateHUDShop() {
+  document.getElementById('hudCashS').textContent    = '$' + G.cash;
+  document.getElementById('hudNextRound').textContent = (G.round + 1) + ' / ' + G.maxRounds;
+  document.getElementById('hudSlotsS').textContent    = G.slots;
+  document.getElementById('hudRollCount').textContent = G.rollCount;
+}
+function updatePips() {
+  const pips = document.getElementById('hudPips');
+  if (!pips) return;
+  pips.innerHTML = '';
+  for (let i = 1; i <= G.maxRounds; i++) {
+    const pip = document.createElement('div');
+    pip.className = 'round-pip';
+    const res = G.roundResults[i - 1];
+    if (res === 'win')  pip.classList.add('win');
+    else if (res === 'loss') pip.classList.add('loss');
+    else if (res === 'draw') pip.classList.add('done');
+    else if (i === G.round) pip.classList.add('current');
+    pips.appendChild(pip);
+  }
+}
+</script>
+</body>
+</html>
