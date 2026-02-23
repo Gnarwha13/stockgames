@@ -489,10 +489,10 @@ const RETURN_DIST = {
   rare:         [ 3.0,  8.0 ],  // Blue chip stocks: solid but individual
   veryRare:     [ 4.5, 12.0 ],  // Growth blue chips: meaningful variance
   ultraRare:    [ 6.0, 18.0 ],  // High-growth individual stocks
-  megaRare:     [ 8.0, 25.0 ],  // Disruptors: high ceiling, volatile floor
-  legendary:    [10.0, 32.0 ],  // Pre-revenue / momentum: boom or bust
-  ultraLegend:  [12.0, 45.0 ],  // Deep speculative: massive swings
-  unique:       [15.0, 60.0 ],  // Pre-revenue moonshots
+  megaRare:     [ 5.0, 28.0 ],  // Disruptors: slightly positive but very volatile
+  legendary:    [ 1.0, 40.0 ],  // Pre-revenue: break-even EV, wild swings
+  ultraLegend:  [-4.0, 55.0 ],  // Deep speculative: mostly negative EV
+  unique:       [-8.0, 70.0 ],  // Penny/moonshot: most tank, rare 5x outlier
 };
 
 const STOCKS = {
