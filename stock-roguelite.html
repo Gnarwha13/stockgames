@@ -94,35 +94,92 @@ h1, h2, h3, .mono { font-family: 'Orbitron', monospace; }
 .round-pip.current { border-color: var(--accent); animation: pipPulse 1s ease-in-out infinite; }
 @keyframes pipPulse { 0%,100% { box-shadow: 0 0 0 var(--accent); } 50% { box-shadow: 0 0 8px var(--accent); } }
 
+/* ── SLOT MACHINES GRID ── */
+.slot-machines-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.6rem;
+  width: 100%; max-width: 900px;
+}
+
+.slot-machine-wrap {
+  display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
+}
+
+.slot-window {
+  width: 100%; height: 110px;
+  border: 1px solid var(--border);
+  background: #050709;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.slot-window.landed:hover  { border-color: var(--accent); }
+.slot-window.selected-slot { border-color: var(--green) !important; box-shadow: 0 0 12px rgba(34,197,94,0.3); }
+.slot-window.locked-slot   { border-color: var(--gold)  !important; box-shadow: 0 0 10px rgba(255,215,0,0.2); }
+
+/* Indicator line */
+.slot-window::after {
+  content: ''; position: absolute; left: 0; right: 0;
+  top: 50%; transform: translateY(-50%);
+  height: 1px; background: rgba(255,255,255,0.06);
+  pointer-events: none; z-index: 3;
+}
+
+.slot-track-rl {
+  display: flex; flex-direction: column;
+  position: absolute; top: 0; left: 0; right: 0;
+  will-change: transform;
+}
+
+.slot-item-rl {
+  height: 110px; flex-shrink: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  padding: 0.4rem;
+}
+.srl-emoji  { font-size: 1.4rem; line-height: 1; }
+.srl-ticker { font-family: 'Orbitron', monospace; font-size: 0.65rem; font-weight: 700; }
+.srl-tier   { font-family: 'Orbitron', monospace; font-size: 0.4rem; letter-spacing: 0.1em; opacity: 0.7; }
+
+/* Selected badge */
+.slot-sel-badge {
+  font-family: 'Orbitron', monospace; font-size: 0.5rem; letter-spacing: 0.15em;
+  color: var(--green); height: 14px;
+}
+
+/* Locked cards row */
+.locked-cards-row {
+  display: flex; flex-wrap: wrap; gap: 0.6rem;
+  width: 100%; max-width: 900px;
+  margin-bottom: 0.25rem;
+}
+.locked-card-chip {
+  display: flex; align-items: center; gap: 0.5rem;
+  border: 1px solid var(--gold); background: rgba(255,215,0,0.05);
+  padding: 0.5rem 0.75rem; cursor: pointer;
+  font-size: 0.75rem; transition: all 0.2s;
+}
+.locked-card-chip:hover { background: rgba(255,215,0,0.1); }
+.locked-card-chip.selected-slot { border-color: var(--green); background: rgba(34,197,94,0.08); }
+.lcc-ticker { font-family: 'Orbitron', monospace; font-size: 0.65rem; }
+
 /* ── ROLL SCREEN ── */
 #screenRoll { gap: 1.5rem; }
 .roll-title { font-family: 'Orbitron', monospace; font-size: 0.7rem; letter-spacing: 0.3em; color: var(--dim); text-align: center; }
 .roll-context { font-size: 0.8rem; color: var(--dim); text-align: center; max-width: 600px; line-height: 1.6; }
 
-.cards-grid {
-  display: grid; gap: 0.75rem; width: 100%; max-width: 900px;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-}
-.roll-card {
-  border: 1px solid var(--border); background: var(--bg2); padding: 0.75rem;
-  cursor: pointer; transition: all 0.2s; position: relative;
-  display: flex; flex-direction: column; gap: 0.4rem; min-height: 120px;
-}
-.roll-card:hover:not(.selected):not(.locked-card):not(.disabled) { border-color: var(--accent); transform: translateY(-2px); }
-.roll-card.selected { border-color: var(--green); background: rgba(34,197,94,0.08); box-shadow: 0 0 15px rgba(34,197,94,0.2); }
-.roll-card.locked-card { border-color: var(--gold); background: rgba(255,215,0,0.05); }
-.roll-card.locked-card::before { content: '🔒'; position: absolute; top: 4px; right: 6px; font-size: 0.6rem; }
-.roll-card.disabled { opacity: 0.35; cursor: not-allowed; }
-.rc-emoji { font-size: 1.5rem; }
-.rc-ticker { font-family: 'Orbitron', monospace; font-size: 0.75rem; font-weight: 700; }
-.rc-name { font-size: 0.6rem; color: var(--dim); line-height: 1.3; }
-.rc-tier { font-family: 'Orbitron', monospace; font-size: 0.45rem; letter-spacing: 0.15em; margin-top: auto; }
-.rc-selected-num { position: absolute; top: 4px; right: 6px; font-family: 'Orbitron', monospace; font-size: 0.6rem; color: var(--green); }
 
+  /* ── RESPONSIVE ── */
+  @media (max-width: 600px) {
+    .slot-machines-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+  }
+
+/* ── ROLL ACTIONS ── */
 .roll-actions { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; align-items: center; }
 .roll-info { font-size: 0.7rem; color: var(--dim); text-align: center; }
-
-/* reroll indicator */
 .reroll-badge {
   font-family: 'Orbitron', monospace; font-size: 0.55rem; letter-spacing: 0.1em;
   padding: 0.3rem 0.8rem; border: 1px solid var(--gold); color: var(--gold);
@@ -325,7 +382,11 @@ h1, h2, h3, .mono { font-family: 'Orbitron', monospace; }
   <div class="roll-title" id="rollTitle">SELECT YOUR PORTFOLIO</div>
   <div class="roll-context" id="rollContext"></div>
 
-  <div class="cards-grid" id="cardsGrid"></div>
+  <!-- Locked cards shown above slots -->
+  <div class="locked-cards-row" id="lockedCardsRow"></div>
+
+  <!-- Slot machines — one per rolled card, revealed sequentially -->
+  <div class="slot-machines-grid" id="slotMachinesGrid"></div>
 
   <div class="roll-actions">
     <div id="rerollBadge" class="reroll-badge" onclick="doReroll()">↺ REROLL ONE CARD</div>
@@ -745,6 +806,165 @@ function rollStockWeighted() {
   return { ...pick, tier: chosenTier };
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// AUDIO ENGINE (ported from stock-case.html)
+// ══════════════════════════════════════════════════════════════════════════════
+let audioCtx = null;
+function getCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function playTone(freq, type, gainVal, startTime, duration, endFreq) {
+  const ctx = getCtx();
+  const osc = ctx.createOscillator(), gain = ctx.createGain();
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, startTime);
+  if (endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, startTime + duration);
+  gain.gain.setValueAtTime(gainVal, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+  osc.start(startTime); osc.stop(startTime + duration + 0.01);
+}
+function playUnlock() {
+  const ctx = getCtx(), now = ctx.currentTime;
+  playTone(120, 'sine', 0.5, now, 0.08, 60);
+  playTone(1800, 'square', 0.08, now, 0.03, 900);
+  [0.02, 0.04, 0.06].forEach(t => playTone(800 + Math.random()*400, 'square', 0.04, now+t, 0.02));
+}
+function startReelTicks(durationMs) {
+  const ctx = getCtx();
+  const ticks = []; let t = 0; const totalDur = durationMs / 1000;
+  while (t < totalDur - 0.3) {
+    const progress = t / totalDur;
+    const interval = 0.04 + progress * progress * 0.56;
+    ticks.push(t); t += interval;
+  }
+  ticks.push(totalDur - 0.15);
+  ticks.forEach((tickTime, i) => {
+    const intensity = i === ticks.length - 1 ? 1.8 : Math.max(0.3, 1 - (tickTime / totalDur) * 0.7);
+    const abs = ctx.currentTime + tickTime;
+    playTone(500 + Math.random()*300, 'square', 0.07*intensity, abs, 0.02);
+    playTone(180, 'sine', 0.15*intensity, abs, 0.02);
+  });
+}
+const TIER_RIFFS = {
+  common:       (ctx,now) => { playTone(523,'sine',0.3,now,0.2); playTone(659,'sine',0.25,now+0.15,0.25); },
+  uncommon:     (ctx,now) => { playTone(659,'sine',0.3,now,0.15); playTone(784,'sine',0.3,now+0.12,0.15); playTone(880,'sine',0.28,now+0.24,0.3); },
+  somewhatRare: (ctx,now) => { [659,784,988,1175].forEach((f,i) => playTone(f,'sine',0.28,now+i*0.1,0.2)); playTone(1175,'triangle',0.1,now+0.32,0.3); },
+  rare:         (ctx,now) => { [523,659,784,1047].forEach((f,i) => playTone(f,'sine',0.28,now+i*0.1,0.2)); },
+  veryRare:     (ctx,now) => { [523,659,784,1047].forEach((f,i) => playTone(f,'triangle',0.32,now+i*0.09,0.25)); playTone(1047,'sine',0.2,now+0.4,0.4); },
+  ultraRare:    (ctx,now) => { [261,329,392,523].forEach(f=>playTone(f,'sawtooth',0.08,now,0.4)); [523,659,784].forEach((f,i)=>playTone(f,'sine',0.2,now+0.35+i*0.1,0.25)); },
+  megaRare:     (ctx,now) => { playTone(196,'sawtooth',0.12,now,0.3); [392,494,587,784].forEach((f,i)=>playTone(f,'sine',0.25,now+0.1+i*0.1,0.2)); playTone(784,'sine',0.3,now+0.55,0.5); },
+  legendary:    (ctx,now) => { [130,196,261].forEach(f=>playTone(f,'sawtooth',0.1,now,0.5)); [1047,1319,1568,2093].forEach((f,i)=>playTone(f,'sine',0.15,now+0.1+i*0.08,0.15)); playTone(2093,'sine',0.2,now+0.5,0.6); },
+  ultraLegend:  (ctx,now) => { [65,98,130].forEach(f=>playTone(f,'sawtooth',0.12,now,0.8)); [523,659,784,880,1047,880,1047,1319].forEach((f,i)=>playTone(f,'sine',0.28,now+0.05+i*0.1,0.18)); playTone(1319,'sine',0.35,now+0.9,0.8); },
+  unique:       (ctx,now) => { [65,98,130].forEach(f=>playTone(f,'sine',0.1,now,1.2)); [1047,1319,1568,2093,2637,2093,1568,2093,2637,3136].forEach((f,i)=>playTone(f,'sine',0.2,now+i*0.1,0.3)); playTone(3136,'sine',0.25,now+1.1,1.0); },
+};
+function playRiff(tierKey) {
+  const ctx = getCtx();
+  const fn = TIER_RIFFS[tierKey] || TIER_RIFFS.common;
+  fn(ctx, ctx.currentTime);
+}
+
+// Chart boop — pitch shifts up/down based on whether player is ahead
+// Called every quarter tick; pitch reflects current lead/lag
+function playChartBoop(playerVal, opponentVal) {
+  const ctx = getCtx();
+  const now = ctx.currentTime;
+  const leading = playerVal >= opponentVal;
+  // Base pitch rises over time (quarter index encoded in value magnitude as proxy)
+  const base = leading ? 440 + Math.random() * 80 : 220 + Math.random() * 60;
+  playTone(base, 'sine', 0.07, now, 0.04);
+  // Tiny sub-click for texture
+  playTone(base * 0.5, 'triangle', 0.03, now, 0.03);
+}
+
+// Card select — satisfying mechanical ka-chunk
+function playCardSelect() {
+  const ctx = getCtx();
+  const now = ctx.currentTime;
+  // Heavy thud
+  playTone(80,  'sine',     0.5,  now,        0.06, 40);
+  // Mid click snap
+  playTone(900, 'square',   0.12, now,        0.025, 450);
+  // High metallic ping
+  playTone(2400,'sine',     0.08, now + 0.01, 0.04, 1200);
+  // Satisfying body resonance
+  playTone(160, 'triangle', 0.18, now,        0.09, 80);
+}
+
+// Card deselect — lighter reverse chunk
+function playCardDeselect() {
+  const ctx = getCtx();
+  const now = ctx.currentTime;
+  playTone(600, 'square',   0.08, now,        0.02, 300);
+  playTone(60,  'sine',     0.25, now,        0.05, 40);
+  playTone(1200,'sine',     0.04, now + 0.01, 0.03, 600);
+}
+
+// Victory fanfare — triumphant ascending chords
+function playVictory() {
+  const ctx = getCtx();
+  const now = ctx.currentTime;
+  // Bass foundation
+  [65, 82, 98].forEach(f => playTone(f, 'sawtooth', 0.1, now, 1.5));
+  // First chord stab — C major
+  [523, 659, 784].forEach(f => playTone(f, 'triangle', 0.22, now, 0.3));
+  // Rising arpeggio
+  [523, 659, 784, 1047, 1319].forEach((f, i) =>
+    playTone(f, 'sine', 0.25, now + 0.25 + i * 0.1, 0.2)
+  );
+  // Second chord — G major lift
+  [392, 494, 587, 784].forEach((f, i) =>
+    playTone(f, 'triangle', 0.2, now + 0.85 + i * 0.04, 0.3)
+  );
+  // Final triumphant high note with shimmer
+  playTone(1047, 'sine', 0.35, now + 1.2, 0.8, 1319);
+  playTone(1319, 'sine', 0.3,  now + 1.6, 0.7);
+  playTone(1568, 'sine', 0.25, now + 1.9, 0.9);
+  // Sparkle tail
+  [2093, 2637, 3136].forEach((f, i) =>
+    playTone(f, 'sine', 0.12, now + 2.1 + i * 0.12, 0.2)
+  );
+}
+
+// Defeat sting — dun DUN!
+function playDefeat() {
+  const ctx = getCtx();
+  const now = ctx.currentTime;
+  // First "dun" — short stab
+  [98, 123, 147].forEach(f => playTone(f, 'sawtooth', 0.15, now, 0.25));
+  playTone(220, 'square', 0.1, now, 0.2);
+  // Brief silence gap
+  // Second "DUN" — heavier, lower, longer
+  [65, 82, 98].forEach(f => playTone(f, 'sawtooth', 0.22, now + 0.45, 0.8));
+  playTone(147, 'square', 0.15, now + 0.45, 0.6);
+  // Descending tone — the kicker
+  playTone(220, 'sine', 0.2, now + 0.45, 0.9, 110);
+  // Dissonant overtone
+  playTone(233, 'sawtooth', 0.08, now + 0.5, 0.7);
+  // Final low rumble fade
+  playTone(55,  'sine', 0.18, now + 0.9, 1.2, 40);
+}
+
+// Draw — neutral ambiguous chord
+function playDraw() {
+  const ctx = getCtx();
+  const now = ctx.currentTime;
+  [261, 329, 392].forEach((f, i) => playTone(f, 'triangle', 0.18, now + i * 0.08, 0.5));
+  playTone(440, 'sine', 0.15, now + 0.35, 0.6);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ROLL SCREEN — SLOT MACHINE VERSION
+// ══════════════════════════════════════════════════════════════════════════════
+const SLOT_ITEMS_TOTAL = 28;
+const SLOT_WINNER_IDX  = 16;
+const SPIN_DURATION_MS = 6000;
+
+let slotsLanded    = 0;   // how many have finished spinning
+let slotsSpinning  = false;
+
 function setupRollScreen() {
   updateHUD();
   const diff = getDifficulty();
@@ -752,16 +972,15 @@ function setupRollScreen() {
   document.getElementById('rollTitle').textContent = `ROUND ${G.round} — SELECT YOUR PORTFOLIO`;
   document.getElementById('rollContext').innerHTML =
     `Opponent: <span style="color:${diff.color};font-family:'Orbitron',monospace">${diff.label}</span> — ${diff.desc}<br>` +
-    `Roll cost: <span style="color:var(--gold)">$10</span> · Pick <strong>${G.slots}</strong> cards to build your portfolio`;
+    `Roll cost: <span style="color:var(--gold)">$10</span> · Pick <strong>${G.slots}</strong> cards`;
 
-  // Check can afford
   if (G.cash < 10) { triggerGameOver("BANKRUPT", "You couldn't afford to roll."); return; }
 
   G.cash -= 10;
   G.rerollUsed = false;
   updateHUD();
 
-  // Generate rolls (excluding locked card tickers)
+  // Generate rolls (excluding locked tickers)
   const lockedTickers = new Set(G.lockedCards.map(c => c.ticker));
   G.currentRolls = [];
   const used = new Set(lockedTickers);
@@ -771,81 +990,250 @@ function setupRollScreen() {
   }
 
   G.selectedCards = [...G.lockedCards];
-  renderRollCards();
-  updateRerollBadge();
-  document.getElementById('slotsNeeded').textContent = G.slots;
+  slotsLanded = 0;
+  slotsSpinning = true;
+
+  document.getElementById('confirmRollBtn').disabled = true;
+  document.getElementById('slotsNeeded').textContent  = G.slots;
   document.getElementById('selectedCount').textContent = G.selectedCards.length;
-  document.getElementById('confirmRollBtn').disabled = G.selectedCards.length < G.slots;
+  updateRerollBadge();
+
+  renderLockedCards();
+  buildSlotMachines();
 }
 
-function renderRollCards() {
-  const grid = document.getElementById('cardsGrid');
+function renderLockedCards() {
+  const row = document.getElementById('lockedCardsRow');
+  row.innerHTML = '';
+  G.lockedCards.forEach(card => {
+    const tier  = TIERS[card.tier];
+    const isSelected = G.selectedCards.some(s => s.ticker === card.ticker);
+    const chip  = document.createElement('div');
+    chip.className = 'locked-card-chip' + (isSelected ? ' selected-slot' : '');
+    chip.innerHTML = `
+      <span>${card.emoji}</span>
+      <span class="lcc-ticker" style="color:${tier.color}">${card.ticker}</span>
+      <span style="font-size:0.6rem;color:var(--dim)">${card.name}</span>
+      <span style="font-size:0.6rem;color:var(--gold)">🔒</span>
+      ${isSelected ? `<span style="font-size:0.55rem;color:var(--green);font-family:'Orbitron',monospace">✓${G.selectedCards.findIndex(s=>s.ticker===card.ticker)+1}</span>` : ''}
+    `;
+    chip.addEventListener('click', () => toggleCardSelect(card));
+    row.appendChild(chip);
+  });
+}
+
+function buildSlotMachines() {
+  const grid = document.getElementById('slotMachinesGrid');
   grid.innerHTML = '';
 
-  // Locked cards first
-  G.lockedCards.forEach((card, i) => {
-    const el = buildCardEl(card, true, false);
-    el.classList.add('locked-card', 'selected');
-    el.querySelector('.rc-selected-num').textContent = i + 1;
-    grid.appendChild(el);
-  });
+  // Play the initial unlock click once for the whole batch
+  playUnlock();
 
-  // Rolled cards
-  G.currentRolls.forEach(card => {
-    const isSelected = G.selectedCards.some(s => s.ticker === card.ticker);
-    const selIdx = G.selectedCards.findIndex(s => s.ticker === card.ticker);
-    const el = buildCardEl(card, isSelected, false);
-    if (isSelected) el.querySelector('.rc-selected-num').textContent = selIdx + 1;
-    el.addEventListener('click', () => toggleCardSelect(card));
-    grid.appendChild(el);
+  G.currentRolls.forEach((winner, idx) => {
+    const stagger = idx * 150; // ms offset per slot
+
+    // Build track items
+    const items = [];
+    const usedInReel = new Set([winner.ticker]);
+    for (let i = 0; i < SLOT_ITEMS_TOTAL; i++) {
+      if (i === SLOT_WINNER_IDX) { items.push(winner); continue; }
+      let pick;
+      let tries = 0;
+      do { pick = ALL_STOCKS_FLAT[Math.floor(Math.random() * ALL_STOCKS_FLAT.length)]; tries++; }
+      while (usedInReel.has(pick.ticker) && tries < 50);
+      usedInReel.add(pick.ticker);
+      items.push(pick);
+    }
+
+    // Wrapper
+    const wrap = document.createElement('div');
+    wrap.className = 'slot-machine-wrap';
+
+    // Window
+    const win = document.createElement('div');
+    win.className = 'slot-window';
+    win.id = `slot-win-${idx}`;
+
+    // Track
+    const track = document.createElement('div');
+    track.className = 'slot-track-rl';
+
+    items.forEach(item => {
+      const tierDef = TIERS[item.tier] || TIERS.common;
+      const el = document.createElement('div');
+      el.className = 'slot-item-rl';
+      el.style.background  = tierDef.color + '11';
+      el.style.borderColor = tierDef.color + '33';
+      el.innerHTML = `
+        <div class="srl-emoji">${item.emoji}</div>
+        <div class="srl-ticker" style="color:${tierDef.color}">${item.ticker}</div>
+        <div class="srl-tier"   style="color:${tierDef.color}">${tierDef.label}</div>
+      `;
+      track.appendChild(el);
+    });
+
+    win.appendChild(track);
+    wrap.appendChild(win);
+
+    // Selection badge below the window
+    const badge = document.createElement('div');
+    badge.className = 'slot-sel-badge';
+    badge.id = `slot-badge-${idx}`;
+    wrap.appendChild(badge);
+
+    grid.appendChild(wrap);
+
+    // Start the animation after stagger delay
+    setTimeout(() => {
+      animateSlot(track, win, winner, idx, stagger);
+    }, stagger);
+
+    // Schedule ticks for this slot
+    setTimeout(() => {
+      startReelTicks(SPIN_DURATION_MS);
+    }, stagger);
   });
 }
 
-function buildCardEl(card, selected, disabled) {
-  const tier = TIERS[card.tier];
-  const el = document.createElement('div');
-  el.className = 'roll-card' + (selected ? ' selected' : '') + (disabled ? ' disabled' : '');
-  el.style.borderColor = selected ? 'var(--green)' : tier.color + '55';
-  el.innerHTML = `
-    <div class="rc-emoji">${card.emoji}</div>
-    <div class="rc-ticker" style="color:${tier.color}">${card.ticker}</div>
-    <div class="rc-name">${card.name}</div>
-    <div class="rc-tier" style="color:${tier.color}">${tier.label}</div>
-    <div class="rc-selected-num"></div>
-  `;
-  return el;
+function animateSlot(track, winEl, winner, idx, stagger) {
+  const winnerItemEl = track.children[SLOT_WINNER_IDX];
+
+  // Measure positions after a brief paint frame
+  requestAnimationFrame(() => {
+    const winH       = winEl.offsetHeight;
+    const itemH      = winnerItemEl.offsetHeight || 110;
+    const winnerTop  = SLOT_WINNER_IDX * itemH;
+    const centerOffset = winH / 2 - itemH / 2;
+    const finalTY    = -(winnerTop - centerOffset);
+    const startTY    = 100; // start slightly below
+
+    // Snap to start
+    track.style.transition = 'none';
+    track.style.transform  = `translateY(${startTY}px)`;
+    void track.offsetHeight; // force reflow
+
+    // Animate
+    track.style.transition = `transform ${SPIN_DURATION_MS}ms cubic-bezier(0.03, 1, 0.15, 1)`;
+    track.style.transform  = `translateY(${finalTY}px)`;
+
+    // On land
+    let fired = false;
+    function onLand() {
+      if (fired) return;
+      fired = true;
+      track.removeEventListener('transitionend', onLand);
+
+      // Flash the winner item
+      const tierDef = TIERS[winner.tier] || TIERS.common;
+      winnerItemEl.style.background = tierDef.color + '33';
+      setTimeout(() => { winnerItemEl.style.background = tierDef.color + '11'; }, 300);
+
+      // Play tier riff
+      playRiff(winner.tier);
+
+      // Mark window as landed + clickable
+      winEl.classList.add('landed');
+      winEl.addEventListener('click', () => toggleCardSelect(winner));
+
+      // Update landed count
+      slotsLanded++;
+      if (slotsLanded >= G.currentRolls.length) {
+        slotsSpinning = false;
+        updateConfirmBtn();
+      }
+    }
+
+    track.addEventListener('transitionend', onLand);
+    setTimeout(onLand, SPIN_DURATION_MS + 400);
+  });
 }
 
 function toggleCardSelect(card) {
   const idx = G.selectedCards.findIndex(s => s.ticker === card.ticker);
   if (idx >= 0) {
     G.selectedCards.splice(idx, 1);
+    playCardDeselect();
   } else {
     if (G.selectedCards.length >= G.slots) return;
     G.selectedCards.push(card);
+    playCardSelect();
   }
-  renderRollCards();
+  refreshSlotSelectionState();
+  renderLockedCards();
   document.getElementById('selectedCount').textContent = G.selectedCards.length;
-  document.getElementById('confirmRollBtn').disabled = G.selectedCards.length < G.slots;
+  updateConfirmBtn();
+}
+
+function refreshSlotSelectionState() {
+  G.currentRolls.forEach((card, idx) => {
+    const win   = document.getElementById(`slot-win-${idx}`);
+    const badge = document.getElementById(`slot-badge-${idx}`);
+    if (!win) return;
+    const selIdx = G.selectedCards.findIndex(s => s.ticker === card.ticker);
+    const isSelected = selIdx >= 0;
+    win.classList.toggle('selected-slot', isSelected);
+    badge.textContent = isSelected ? `✓ SLOT ${selIdx + 1}` : '';
+  });
+}
+
+function updateConfirmBtn() {
+  const ready = !slotsSpinning && G.selectedCards.length >= G.slots;
+  document.getElementById('confirmRollBtn').disabled = !ready;
 }
 
 function doReroll() {
-  if (G.rerollUsed || !G.upgrades.reroll) return;
-  // Remove a random unselected, non-locked card and replace it
-  const lockedTickers = new Set(G.lockedCards.map(c => c.ticker));
+  if (G.rerollUsed || !G.upgrades.reroll || slotsSpinning) return;
+  const lockedTickers   = new Set(G.lockedCards.map(c => c.ticker));
   const selectedTickers = new Set(G.selectedCards.map(c => c.ticker));
   const replaceable = G.currentRolls.filter(c => !lockedTickers.has(c.ticker) && !selectedTickers.has(c.ticker));
   if (replaceable.length === 0) return;
-  const victim = replaceable[Math.floor(Math.random() * replaceable.length)];
+
+  const victim  = replaceable[Math.floor(Math.random() * replaceable.length)];
   const usedAll = new Set([...G.currentRolls.map(c=>c.ticker), ...lockedTickers]);
-  let newCard;
-  let attempts = 0;
+  let newCard; let attempts = 0;
   do { newCard = rollStockWeighted(); attempts++; } while (usedAll.has(newCard.ticker) && attempts < 50);
+
   const pos = G.currentRolls.findIndex(c => c.ticker === victim.ticker);
   G.currentRolls[pos] = newCard;
   G.rerollUsed = true;
   updateRerollBadge();
-  renderRollCards();
+
+  // Re-spin just the replaced slot
+  const win   = document.getElementById(`slot-win-${pos}`);
+  if (!win) return;
+  win.classList.remove('landed', 'selected-slot');
+  document.getElementById(`slot-badge-${pos}`).textContent = '';
+
+  // Rebuild track for this slot
+  const oldTrack = win.querySelector('.slot-track-rl');
+  win.removeChild(oldTrack);
+  const track = document.createElement('div');
+  track.className = 'slot-track-rl';
+  const usedInReel = new Set([newCard.ticker]);
+  for (let i = 0; i < SLOT_ITEMS_TOTAL; i++) {
+    const item = (i === SLOT_WINNER_IDX) ? newCard : (() => {
+      let p; let t = 0;
+      do { p = ALL_STOCKS_FLAT[Math.floor(Math.random()*ALL_STOCKS_FLAT.length)]; t++; }
+      while (usedInReel.has(p.ticker) && t < 50);
+      usedInReel.add(p.ticker); return p;
+    })();
+    const td = TIERS[item.tier] || TIERS.common;
+    const el = document.createElement('div');
+    el.className = 'slot-item-rl';
+    el.style.background = td.color + '11';
+    el.style.borderColor = td.color + '33';
+    el.innerHTML = `<div class="srl-emoji">${item.emoji}</div><div class="srl-ticker" style="color:${td.color}">${item.ticker}</div><div class="srl-tier" style="color:${td.color}">${td.label}</div>`;
+    track.appendChild(el);
+  }
+  win.appendChild(track);
+
+  slotsLanded--;
+  slotsSpinning = true;
+  updateConfirmBtn();
+
+  playUnlock();
+  startReelTicks(SPIN_DURATION_MS);
+  animateSlot(track, win, newCard, pos, 0);
 }
 
 function updateRerollBadge() {
@@ -857,8 +1245,8 @@ function updateRerollBadge() {
 }
 
 function confirmRoll() {
-  if (G.selectedCards.length < G.slots) return;
-  G.playerPortfolio = [...G.selectedCards];
+  if (G.selectedCards.length < G.slots || slotsSpinning) return;
+  G.playerPortfolio  = [...G.selectedCards];
   G.opponentPortfolio = buildOpponentPortfolio();
   setupBattleScreen();
   showScreen('screenBattle');
@@ -1163,6 +1551,9 @@ function runSimulation() {
     opponentEl.textContent = '$' + ov.toFixed(2);
     opponentEl.style.color = ov >= 100 ? 'var(--green)' : 'var(--red)';
 
+    // Quarter boop — play on every tick after the first
+    if (q > 0) playChartBoop(pv, ov);
+
     // Progress bar & label
     const yr  = startYear + Math.floor(q / 4);
     const qtr = (q % 4) + 1;
@@ -1204,6 +1595,7 @@ function showBattleResult(playerFinal, opponentFinal) {
     banner.style.borderColor = 'var(--gold)';
     sub.textContent = `Final values within $1.50 of each other`;
     reward = 25; resultStr = 'draw';
+    playDraw();
   } else if (isWin) {
     title.textContent = 'VICTORY';
     title.style.color = 'var(--green)';
@@ -1211,6 +1603,7 @@ function showBattleResult(playerFinal, opponentFinal) {
     sub.textContent = `Your $100 grew to $${playerFinal.toFixed(2)} vs opponent's $${opponentFinal.toFixed(2)} (+${diff}% edge)`;
     reward = 40; resultStr = 'win';
     G.wins++;
+    playVictory();
   } else {
     title.textContent = 'DEFEAT';
     title.style.color = 'var(--red)';
@@ -1218,6 +1611,7 @@ function showBattleResult(playerFinal, opponentFinal) {
     sub.textContent = `Your $100 grew to $${playerFinal.toFixed(2)} vs opponent's $${opponentFinal.toFixed(2)} (${diff}% behind)`;
     reward = 15; resultStr = 'loss';
     G.losses++;
+    playDefeat();
   }
 
   G.cash += reward;
